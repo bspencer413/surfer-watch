@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0e7490">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Surfer Watch">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="/apple-touch-icon.png">
+  <title>Surfer Watch</title>
+  <meta name="description" content="Surfer Watch -- Track your favorite surfers. Add any rider to your watchlist. Get notified on contest results, injuries, retirements, and milestones across the WSL and beyond.">
+  <meta name="keywords" content="surfer watch, surfing, WSL, World Surf League, surfer tracker, surf alerts, Pipeline, Triple Crown, Hawaii surfing">
+  <meta name="robots" content="index, follow">
+  <meta name="author" content="Surfer Watch">
+  <link rel="canonical" href="https://surfer.watch">
+  <meta property="og:title" content="Surfer Watch -- Track Your Riders.">
+  <meta property="og:description" content="Add any surfer to your watchlist. Follow the riders behind the waves.">
+  <meta property="og:url" content="https://surfer.watch">
+  <meta property="og:type" content="website">
+  <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjogIlN1cmZlciBXYXRjaCIsICJzaG9ydF9uYW1lIjogIlNGIiwgInN0YXJ0X3VybCI6ICIvIiwgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMwNTJlM2YiLCAidGhlbWVfY29sb3IiOiAiIzBlNzQ5MCJ9">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Graduate&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    /* SKIN CSS VARS -- reskinner v0.3 will target these */
+    :root {
+      --sf-accent: #0d9488;       /* teal-600 -- ocean primary */
+      --sf-accent-2: #0891b2;     /* cyan-600 -- ocean secondary */
+      --sf-bg-gradient: linear-gradient(180deg, #075985 0%, #0e7490 45%, #14b8a6 100%);
+      --sf-bg-overlay: rgba(0,0,0,0.22);
+      --sf-signin-blur: blur(2px);
+      --sf-card-bg: rgba(0,0,0,0.55);
+      --sf-card-border: rgba(255,255,255,0.15);
+      --sf-drawer-bg: #052e3f;
+      --sf-display-font: 'Graduate', Georgia, serif;
+    }
+    * { -webkit-tap-highlight-color: transparent; font-family: Georgia, 'Times New Roman', serif; }
+    html, body { height: 100%; overflow-x: hidden; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .modal-drawer {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: var(--sf-drawer-bg); border-radius: 20px 20px 0 0;
+      border-top: 1px solid var(--sf-card-border);
+      max-height: 85vh; overflow-y: auto;
+      transform: translateY(0); transition: transform 0.3s ease;
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+    .modal-overlay { position: fixed; inset: 0; z-index: 99; background: rgba(0,0,0,0.6); }
+  </style>
+</head>
+<body style="margin:0;padding:0;">
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+/* SKIN BLOCK -- mirrors what reskinner v0.3 will produce.
+   ┌─ PLACEHOLDERS TO CONFIRM ──────────────────────────────────────
+   │ SF_REPO    -- adjust to actual GitHub raw path once repo named
+   │ API_BASE   -- adjust to actual Render URL once backend deployed
+   │ SIGNIN_BG  -- filename of the surf photo Bill uploads to repo
+   └────────────────────────────────────────────────────────────────  */
+const APP_NAME = 'Surfer Watch';
+const APP_VERSION = '0.1.0';
+const API_BASE = 'https://surfer-watch-backend.onrender.com';
+const SF_REPO = 'https://raw.githubusercontent.com/bspencer413/surfer-watch/main';
+const SIGNIN_BG = SF_REPO + '/signin-background.jpg';
+const BILL_PHOTO = 'https://raw.githubusercontent.com/bspencer413/memorial-watch/main/Bill.jpeg';
+const TAGLINE = 'Who Are You Watching?';
+const TAGLINE_SUB = 'Track the surfers riding the world\'s best breaks';
+
+const isPhone = window.innerWidth < 500;
+const isTablet = window.innerWidth >= 500 && window.innerWidth < 1024;
+const PT = isPhone ? '36vh' : isTablet ? '40vh' : '38vh';
+
+// ============================================================================
+// AuthGate v0.3.1 — 3Brains portable account + anonymous-storage component
+// ============================================================================
+// Identical to Player Watch v1.0.28. Only AUTH_GATE_CONFIG differs per app.
+// See PW for full documentation.
+// ============================================================================
+
+const AUTH_GATE_CONFIG = {
+  apiBase: API_BASE,
+  tokenKey: 'token',
+  userKey: 'user',
+  anonStorageKey: 'surf_anon_watchlist',
+  anonSnapshotPrefix: 'surf_meta_',
+  watchlistEndpoint: '/watchlist',
+  loginEndpoint: '/auth/login',
+  registerEndpoint: '/auth/register',
+  freeAnonLimit: 5,
+  appName: 'Surfer Watch',
+  saveActionLabel: 'save this surfer',
+  itemNoun: 'surfers',
+  upgradeBenefit: 'unlimited saves and 12-hour alerts on the surfers you follow',
+  accentColor: 'var(--sf-accent)',
+  modalBg: 'rgba(5,46,63,0.82)',
+  modalBackdropImage: SIGNIN_BG,
+  stayLoggedInDefault: true
+};
+
+function useAuthGate(config) {
+  const [isAuthed, setIsAuthed] = useState(false);
+  const [user, setUser] = useState(null);
+  const [list, setList] = useState([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('signup');
+  const [modalMessage, setModalMessage] = useState(null);
+  const [modalEmail, setModalEmail] = useState('');
+  const [modalPassword, setModalPassword] = useState('');
+  const [modalShowPwd, setModalShowPwd] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalError, setModalError] = useState(null);
+  const [pendingAction, setPendingAction] = useState(null);
+  const [backendWaking, setBackendWaking] = useState(false);
+  const [stayLoggedIn, setStayLoggedIn] = useState(config.stayLoggedInDefault !== false);
+
+  const readAnonList = () => {
+    try {
+      const raw = localStorage.getItem(config.anonStorageKey);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  };
+  const writeAnonList = (items) => {
+    try { localStorage.setItem(config.anonStorageKey, JSON.stringify(items)); }
+    catch (e) { console.error('AuthGate: failed to write anon list', e); }
+  };
+  const genAnonId = () => 'anon_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+  const readToken = () => localStorage.getItem(config.tokenKey) || sessionStorage.getItem(config.tokenKey);
+  const readUserRaw = () => localStorage.getItem(config.userKey) || sessionStorage.getItem(config.userKey);
+  const writeAuth = (token, userJson, persistent) => {
+    localStorage.removeItem(config.tokenKey);
+    localStorage.removeItem(config.userKey);
+    sessionStorage.removeItem(config.tokenKey);
+    sessionStorage.removeItem(config.userKey);
+    const store = persistent ? localStorage : sessionStorage;
+    store.setItem(config.tokenKey, token);
+    store.setItem(config.userKey, userJson);
+  };
+  const clearAuth = () => {
+    localStorage.removeItem(config.tokenKey);
+    localStorage.removeItem(config.userKey);
+    sessionStorage.removeItem(config.tokenKey);
+    sessionStorage.removeItem(config.userKey);
+  };
+
+  const serverGet = async () => {
+    const t = readToken();
+    const r = await fetch(config.apiBase + config.watchlistEndpoint, {
+      headers: { 'Authorization': 'Bearer ' + t }
+    });
+    if (!r.ok) throw new Error('Failed to load list');
+    return await r.json();
+  };
+  const serverAdd = async (item) => {
+    const t = readToken();
+    const r = await fetch(config.apiBase + config.watchlistEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + t },
+      body: JSON.stringify(item)
+    });
+    if (!r.ok) throw new Error('Failed to save');
+    return await r.json();
+  };
+  const serverRemove = async (id) => {
+    const t = readToken();
+    const r = await fetch(config.apiBase + config.watchlistEndpoint + '/' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + t }
+    });
+    if (!r.ok) throw new Error('Failed to remove');
+    return true;
+  };
+
+  const refreshList = async () => {
+    setListLoading(true);
+    try {
+      if (isAuthed) setList(await serverGet());
+      else setList(readAnonList());
+    } catch (e) {
+      console.error('AuthGate refreshList:', e);
+      setList([]);
+    } finally {
+      setListLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const t = readToken();
+    const u = readUserRaw();
+    if (t && u) {
+      try { setUser(JSON.parse(u)); setIsAuthed(true); }
+      catch (e) { clearAuth(); }
+    }
+  // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
+    refreshList();
+    if (isAuthed) {
+      const anon = readAnonList();
+      if (anon && anon.length > 0) migrateAnonToServer(anon);
+    }
+  // eslint-disable-next-line
+  }, [isAuthed]);
+
+  const migrateAnonToServer = async (anonItems) => {
+    let remaining = anonItems.slice();
+    let migrated = 0;
+    for (let i = 0; i < anonItems.length; i++) {
+      const anonItem = anonItems[i];
+      try {
+        const created = await serverAdd({ name: anonItem.name, location: anonItem.location });
+        try {
+          const oldKey = config.anonSnapshotPrefix + anonItem.id;
+          const oldSnap = localStorage.getItem(oldKey);
+          if (oldSnap) {
+            localStorage.setItem(config.anonSnapshotPrefix + created.id, oldSnap);
+            localStorage.removeItem(oldKey);
+          }
+        } catch (e) {}
+        remaining = remaining.filter(it => it.id !== anonItem.id);
+        writeAnonList(remaining);
+        migrated++;
+      } catch (e) {
+        console.error('AuthGate: migration failed for item', anonItem.id, e);
+        break;
+      }
+    }
+    if (remaining.length === 0) {
+      try { localStorage.removeItem(config.anonStorageKey); } catch (e) {}
+    }
+    await refreshList();
+    return migrated;
+  };
+
+  const openSignup = (msg) => {
+    setModalMode('signup'); setModalMessage(msg || null);
+    setModalEmail(''); setModalPassword(''); setModalError(null); setModalOpen(true);
+  };
+  const openSignin = (msg) => {
+    setModalMode('signin'); setModalMessage(msg || null);
+    setModalEmail(''); setModalPassword(''); setModalError(null); setModalOpen(true);
+  };
+  const closeModal = () => {
+    setModalOpen(false); setModalEmail(''); setModalPassword('');
+    setModalMessage(null); setModalError(null); setPendingAction(null);
+  };
+
+  const signOut = () => {
+    clearAuth(); setUser(null); setIsAuthed(false);
+  };
+
+  const add = async (item) => {
+    if (isAuthed) {
+      const created = await serverAdd(item);
+      await refreshList();
+      return created;
+    }
+    const current = readAnonList();
+    if (current.length >= config.freeAnonLimit) {
+      openSignup('You\'ve saved ' + config.freeAnonLimit + ' ' + config.itemNoun
+        + '. Sign up for ' + config.upgradeBenefit + '.');
+      setPendingAction({ type: 'add', item: item });
+      return null;
+    }
+    const id = genAnonId();
+    const newItem = {
+      id: id, name: item.name, location: item.location,
+      status: 'active', is_resolved: false, resolution_outcome: null,
+      created_at: new Date().toISOString()
+    };
+    const updated = current.concat([newItem]);
+    writeAnonList(updated);
+    setList(updated);
+    return newItem;
+  };
+
+  const remove = async (id) => {
+    if (isAuthed) {
+      await serverRemove(id);
+    } else {
+      const current = readAnonList();
+      const updated = current.filter(it => it.id !== id);
+      writeAnonList(updated);
+      try { localStorage.removeItem(config.anonSnapshotPrefix + id); } catch (e) {}
+    }
+    await refreshList();
+  };
+
+  const requireAuth = (callback) => {
+    if (isAuthed) { callback(); return true; }
+    setPendingAction({ type: 'callback', fn: callback });
+    openSignup('Sign up to ' + config.saveActionLabel + '.');
+    return false;
+  };
+
+  const submitModal = async () => {
+    if (!modalEmail || !modalPassword) {
+      setModalError('Email and password required.');
+      return;
+    }
+    setModalLoading(true); setModalError(null); setBackendWaking(false);
+    const wakeTimer = setTimeout(() => setBackendWaking(true), 3000);
+    try {
+      const endpoint = modalMode === 'signup' ? config.registerEndpoint : config.loginEndpoint;
+      const r = await fetch(config.apiBase + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: modalEmail, password: modalPassword })
+      });
+      clearTimeout(wakeTimer); setBackendWaking(false);
+      if (!r.ok) {
+        const errBody = await r.json().catch(() => ({}));
+        throw new Error(errBody.detail || 'Auth failed');
+      }
+      const data = await r.json();
+      const u = { email: modalEmail, name: modalEmail.split('@')[0] };
+      writeAuth(data.access_token, JSON.stringify(u), stayLoggedIn);
+      setUser(u); setIsAuthed(true);
+
+      const pa = pendingAction;
+      setPendingAction(null); setModalOpen(false);
+      setModalEmail(''); setModalPassword(''); setModalMessage(null);
+
+      if (pa) {
+        setTimeout(async () => {
+          try {
+            if (pa.type === 'callback' && typeof pa.fn === 'function') {
+              pa.fn();
+            } else if (pa.type === 'add' && pa.item) {
+              await serverAdd(pa.item);
+              await refreshList();
+            }
+          } catch (e) { console.error('AuthGate: replay pending action failed', e); }
+        }, 100);
+      }
+    } catch (e) {
+      clearTimeout(wakeTimer); setBackendWaking(false);
+      setModalError(e.message || 'Auth failed.');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const isSignup = modalMode === 'signup';
+  const modal = !modalOpen ? null : (
+    <>
+      <div onClick={closeModal} style={Object.assign(
+        { position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, zIndex: 999, backgroundColor: 'rgba(0,0,0,0.7)' },
+        config.modalBackdropImage ? {
+          backgroundImage: 'url(' + config.modalBackdropImage + ')',
+          backgroundSize: 'cover', backgroundPosition: 'center',
+          backgroundColor: 'rgba(0,0,0,0.35)'
+        } : {}
+      )} />
+      <div style={{
+        position: 'fixed', zIndex: 1000,
+        left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+        width: 'calc(100% - 2rem)', maxWidth: '420px',
+        backgroundColor: config.modalBg, borderRadius: '20px',
+        border: '1px solid rgba(255,255,255,0.15)', padding: '1.5rem',
+        backdropFilter: 'blur(8px)', boxShadow: '0 10px 40px rgba(0,0,0,0.6)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+          <h2 style={{ color: '#fff', fontSize: '1.75rem', fontWeight: 700, margin: 0, lineHeight: 1.1 }}>
+            {isSignup ? 'Sign up' : 'Sign in'}
+          </h2>
+          <button onClick={closeModal} type="button" style={{
+            background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.6)',
+            fontSize: '1.75rem', fontWeight: 700, cursor: 'pointer', lineHeight: 1, padding: '0 0.25rem'
+          }}>X</button>
+        </div>
+        {isSignup && (
+          <p style={{ color: 'rgba(255,255,255,0.80)', fontSize: '1rem', lineHeight: 1.4, marginBottom: '0.75rem' }}>
+            Sign up for {config.upgradeBenefit}.
+          </p>
+        )}
+        {modalMessage && (
+          <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '1.125rem', lineHeight: 1.4, marginBottom: '1rem' }}>
+            {modalMessage}
+          </p>
+        )}
+        <input type="email" placeholder="Email address" value={modalEmail}
+          onChange={(e) => setModalEmail(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && submitModal()}
+          autoComplete="email"
+          style={{
+            width: '100%', padding: '0.75rem 1rem', borderRadius: '12px',
+            backgroundColor: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)',
+            color: '#fff', fontSize: '1.125rem', marginBottom: '0.75rem',
+            boxSizing: 'border-box', outline: 'none'
+          }} />
+        <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+          <input type={modalShowPwd ? 'text' : 'password'} placeholder="Password"
+            value={modalPassword}
+            onChange={(e) => setModalPassword(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && submitModal()}
+            autoComplete={isSignup ? 'new-password' : 'current-password'}
+            style={{
+              width: '100%', padding: '0.75rem 3rem 0.75rem 1rem', borderRadius: '12px',
+              backgroundColor: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)',
+              color: '#fff', fontSize: '1.125rem', boxSizing: 'border-box', outline: 'none'
+            }} />
+          <button onClick={() => setModalShowPwd(!modalShowPwd)} type="button"
+            style={{
+              position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
+              background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.6)',
+              cursor: 'pointer', fontSize: '0.875rem', padding: '0.25rem'
+            }}>{modalShowPwd ? 'hide' : 'show'}</button>
+        </div>
+        {backendWaking && (
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '1rem', textAlign: 'center', marginBottom: '0.75rem' }}>
+            Waking up the server...
+          </p>
+        )}
+        {modalError && (
+          <p style={{ color: '#f87171', fontSize: '1rem', textAlign: 'center', marginBottom: '0.75rem' }}>
+            {modalError}
+          </p>
+        )}
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: '0.5rem',
+          color: 'rgba(255,255,255,0.85)', fontSize: '1rem',
+          marginBottom: '0.75rem', cursor: 'pointer'
+        }}>
+          <input type="checkbox" checked={stayLoggedIn}
+            onChange={(e) => setStayLoggedIn(e.target.checked)}
+            style={{ width: '1.1rem', height: '1.1rem', cursor: 'pointer' }} />
+          Stay signed in on this device
+        </label>
+        <button onClick={submitModal} disabled={modalLoading} type="button"
+          style={{
+            width: '100%', padding: '1rem', borderRadius: '12px',
+            backgroundColor: config.accentColor, color: '#fff', fontSize: '1.25rem',
+            fontWeight: 700, border: 'none', cursor: 'pointer',
+            opacity: modalLoading ? 0.5 : 1, marginBottom: '0.75rem'
+          }}>
+          {modalLoading ? '...' : (isSignup ? 'Sign up' : 'Sign in')}
+        </button>
+        <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '1rem', textAlign: 'center', margin: 0 }}>
+          {isSignup ? 'Already have an account? ' : 'New here? '}
+          <button onClick={() => { setModalMode(isSignup ? 'signin' : 'signup'); setModalError(null); }} type="button"
+            style={{
+              background: 'transparent', border: 'none', color: config.accentColor,
+              fontSize: '1rem', fontWeight: 700, cursor: 'pointer', padding: 0,
+              textDecoration: 'underline'
+            }}>
+            {isSignup ? 'Sign in' : 'Sign up'}
+          </button>
+        </p>
+      </div>
+    </>
+  );
+
+  const EmptyState = ({ message, ctaLabel }) => (
+    <div style={{ padding: '2rem 1rem', textAlign: 'center' }}>
+      <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '1.25rem', lineHeight: 1.5, marginBottom: '1.25rem' }}>
+        {message}
+      </p>
+      <button onClick={() => openSignup()} type="button"
+        style={{
+          padding: '0.875rem 1.75rem', borderRadius: '12px',
+          backgroundColor: config.accentColor, color: '#fff',
+          fontSize: '1.125rem', fontWeight: 700, border: 'none', cursor: 'pointer'
+        }}>
+        {ctaLabel || 'Sign up'}
+      </button>
+    </div>
+  );
+
+  const CounterBanner = () => {
+    if (isAuthed) return null;
+    const count = list.length;
+    if (count === 0) return null;
+    return (
+      <div style={{
+        padding: '0.625rem 0.875rem', backgroundColor: 'rgba(0,0,0,0.4)',
+        border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px',
+        marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap'
+      }}>
+        <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: '1rem' }}>
+          {count} of {config.freeAnonLimit} saves used
+        </span>
+        <button onClick={() => openSignup()} type="button"
+          style={{
+            padding: '0.4rem 0.9rem', borderRadius: '999px',
+            backgroundColor: config.accentColor, color: '#fff',
+            fontSize: '0.875rem', fontWeight: 700, border: 'none', cursor: 'pointer'
+          }}>
+          Sign up for unlimited
+        </button>
+      </div>
+    );
+  };
+
+  const atLimit = !isAuthed && list.length >= config.freeAnonLimit;
+
+  return {
+    isAuthed: isAuthed, user: user, list: list, listLoading: listLoading,
+    count: list.length, atLimit: atLimit,
+    add: add, remove: remove, refreshList: refreshList,
+    requireAuth: requireAuth,
+    openSignup: openSignup, openSignin: openSignin, signOut: signOut,
+    modal: modal, EmptyState: EmptyState, CounterBanner: CounterBanner
+  };
+}
+
+// === END AuthGate v0.3.1 ======================================================
+
+
+// Helpers
+const toTitleCase = (s) => s ? s.replace(/\w\S*/g, t => t.charAt(0).toUpperCase() + t.substr(1).toLowerCase()).replace(/'\w/g, t => t.toUpperCase()) : s;
+const smartTitleCase = (s) => s ? s.trim().replace(/\s+/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : s;
+
+// Wikipedia -- the only bio + photo source for v0.1
+// (ESPN had no usable surfer index. WSL data source is a v0.2 candidate.)
+const fetchWikiBio = async (name) => {
+  try {
+    const sum = await (await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(name))).json();
+    if (!sum || sum.type === 'no-extract' || !sum.title) return null;
+    return {
+      title: sum.title,
+      thumbnail: sum.thumbnail ? sum.thumbnail.source : null,
+      extract: sum.extract || '',
+      description: sum.description || ''
+    };
+  } catch(e) { return null; }
+};
+
+// Icons
+const SearchIcon = () => (<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>);
+const HeartIcon = () => (<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>);
+const InfoIcon = () => (<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>);
+const BellIcon = ({ red }) => (<svg className="w-7 h-7" fill="none" stroke={red ? 'var(--sf-accent-2)' : 'currentColor'} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>);
+const PlusIcon = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>);
+const TrashIcon = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>);
+const CheckIcon = () => (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>);
+
+const ClearableInput = ({ value, onChange, onBlur, onKeyPress, placeholder, type='text', maxLength, inputClass }) => (
+  <div className="relative">
+    <input type={type} name="surfer-search" inputMode="search" placeholder={placeholder} value={value} onChange={onChange} onBlur={onBlur} onKeyPress={onKeyPress} maxLength={maxLength} className={inputClass + ' pr-10'} autoCorrect="off" autoCapitalize="words" autoComplete="off" spellCheck="false" />
+    {value && value.length > 0 && (<button onClick={() => onChange({ target: { value: '' } })} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xl font-bold leading-none" type="button">X</button>)}
+  </div>
+);
+
+const CardPageHeader = ({ title, subtitle }) => (
+  <div className="mb-3 pb-2 border-b border-white/15 text-center">
+    <h2 className="text-4xl font-black text-white" style={{ fontFamily: 'var(--sf-display-font)', letterSpacing: '0.06em', textTransform: 'uppercase', WebkitTextStroke: '1px #fff' }}>{title}</h2>
+    {subtitle && <p className="text-gray-200 text-xl mt-1">{subtitle}</p>}
+  </div>
+);
+
+const PageWrapper = ({ children }) => (
+  <div style={{ minHeight: '100dvh', width: '100%', position: 'relative', paddingTop: 'env(safe-area-inset-top)', paddingBottom: '5rem', backgroundImage: 'var(--sf-bg-gradient)', backgroundSize: 'cover', backgroundAttachment: 'scroll' }}>
+    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--sf-bg-overlay)' }} />
+    <div style={{ position: 'relative', zIndex: 10 }}>{children}</div>
+  </div>
+);
+
+function App() {
+  const gate = useAuthGate(AUTH_GATE_CONFIG);
+  const user = gate.user;
+  const watchlist = gate.list;
+  const [page, setPage] = useState('search');
+  const [notifications, setNotifications] = useState([]);
+  const [searchResults, setSearchResults] = useState(null);
+  const [searched, setSearched] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [loadingSave, setLoadingSave] = useState(false);
+  const [searchName, setSearchName] = useState('');
+  const [showDangerZone, setShowDangerZone] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [drawerData, setDrawerData] = useState(null);
+  const [apiVersion, setApiVersion] = useState('...');
+
+  useEffect(() => {
+    fetch(API_BASE + '/health').then(r => r.json()).then(d => setApiVersion(d.version || '?')).catch(() => setApiVersion('?'));
+  }, []);
+
+  useEffect(() => {
+    if (gate.isAuthed) loadNotifications();
+    else setNotifications([]);
+    // eslint-disable-next-line
+  }, [gate.isAuthed]);
+
+  const loadNotifications = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const r = await fetch(API_BASE + '/notifications', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (!r.ok) throw new Error('Failed');
+      setNotifications(await r.json());
+    } catch (e) { console.error(e); }
+  };
+  const dismissAlert = async (notifId) => {
+    const token = localStorage.getItem('token');
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
+    try { await fetch(API_BASE + '/notifications/' + notifId, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } }); } catch(e) {}
+  };
+  const viewAlert = (n) => {
+    const wItem = watchlist.find(w => w.id === n.watchlist_id);
+    if (wItem) { setPage('watchlist'); openDrawer(wItem); }
+  };
+  const doLogout = () => {
+    gate.signOut();
+    setSearchResults(null); setSearched(false);
+    setPage('search');
+  };
+  const doDeleteAccount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const r = await fetch(API_BASE + '/account', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+      if (!r.ok) throw new Error('Failed');
+      doLogout(); alert('Your account has been permanently deleted.');
+    } catch (error) { alert('Error: ' + error.message); }
+  };
+  const clearSearch = () => { setSearchResults(null); setSearched(false); setSearchName(''); };
+  const isOnList = (name) => { if (!name) return false; const lower = name.trim().toLowerCase(); return !!watchlist.find(w => w && w.name && w.name.trim().toLowerCase() === lower); };
+  const parseMeta = (locationField) => { if (!locationField) return null; try { return JSON.parse(locationField); } catch(e) { return null; } };
+
+  const doSearch = async () => {
+    if (document.activeElement) document.activeElement.blur();
+    const name = smartTitleCase((searchName || '').trim().replace(/\s+/g, ' '));
+    if (!name || name.length < 2) { alert('Please enter a surfer name.'); return; }
+    setSearching(true); setSearchResults(null);
+    try {
+      const wiki = await fetchWikiBio(name).catch(() => null);
+      setSearchResults({ wiki: wiki, queryName: name }); setSearched(true);
+    } catch(e) { setSearchResults({ wiki: null, queryName: name }); setSearched(true); }
+    finally { setSearching(false); }
+  };
+
+  // SAVE: route through AuthGate. Wikipedia-only meta for v0.1.
+  const saveSurfer = async () => {
+    if (!searchResults) return;
+    const wiki = searchResults.wiki;
+    const playerName = (wiki && wiki.title) || searchResults.queryName;
+    if (!playerName) return;
+    if (isOnList(playerName)) { alert(playerName + ' is already saved.'); return; }
+    setLoadingSave(true);
+    try {
+      const meta = wiki ? JSON.stringify({
+        wikiTitle: wiki.title,
+        thumbnail: wiki.thumbnail || '',
+        description: wiki.description || ''
+      }) : '';
+      const created = await gate.add({ name: playerName, location: meta });
+      if (!created) return; // Hit anon cap; AuthGate opened modal.
+      clearSearch(); setPage('watchlist');
+    } catch(e) { alert('Error: ' + e.message); }
+    finally { setLoadingSave(false); }
+  };
+
+  const delSurfer = async (id) => {
+    try { await gate.remove(id); }
+    catch (error) { alert('Error: ' + error.message); }
+  };
+
+  // Drawer: Wiki bio re-fetched fresh on every tap. No stats source in v0.1.
+  const openDrawer = async (wItem) => {
+    const meta = parseMeta(wItem.location);
+    setDrawerData({ name: wItem.name, watchlistId: wItem.id, meta: meta, wiki: null, loading: true });
+    const wiki = await fetchWikiBio(wItem.name).catch(() => null);
+    setDrawerData(prev => prev ? Object.assign({}, prev, { wiki: wiki, loading: false }) : null);
+  };
+
+  const unreadCount = notifications.length;
+  const iClass = "w-full px-4 py-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-teal-400 text-xl bg-black/40 text-white placeholder-gray-400";
+  const cardClass = "rounded-2xl p-4 shadow-lg backdrop-blur-sm";
+  const cardStyle = { backgroundColor: 'var(--sf-card-bg)', borderColor: 'var(--sf-card-border)', borderWidth: '1px' };
+  const containerClass = (page === 'about') ? 'w-full max-w-3xl mx-auto px-3' : 'w-full px-3';
+
+  const SurferCard = ({ wiki, queryName, showSaveButton }) => {
+    const display = (wiki && wiki.title) || queryName || '';
+    const photo = (wiki && wiki.thumbnail) || '';
+    const alreadySaved = isOnList(display);
+    return (
+      <div className="rounded-2xl overflow-hidden border border-white/15 shadow-lg" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+        <div className="px-5 py-3 text-center" style={{ background: 'linear-gradient(90deg, var(--sf-accent-2), var(--sf-accent))' }}>
+          <p className="text-white font-black text-3xl">{display}</p>
+        </div>
+        <div className="p-4">
+          <div className="flex gap-3 items-start mb-3">
+            {photo ? <img src={photo} alt={display} className="w-20 h-20 rounded-full object-cover border-2 border-white/30 shrink-0" /> : <div className="w-20 h-20 rounded-full bg-black/40 flex items-center justify-center shrink-0 text-2xl text-white">?</div>}
+            <div className="flex-1">
+              {wiki && wiki.description && <p className="text-teal-200 text-xl italic">{wiki.description}</p>}
+            </div>
+          </div>
+          {wiki && wiki.extract && <p className="text-gray-100 text-xl leading-relaxed mb-3">{wiki.extract}</p>}
+          {showSaveButton && (
+            <div className="space-y-2">
+              {alreadySaved ? <p className="text-green-300 text-xl text-center font-bold">Already saved</p> : <button onClick={saveSurfer} disabled={loadingSave || !wiki} className="w-full py-4 text-white rounded-xl font-bold text-2xl flex items-center justify-center gap-2 disabled:opacity-50" style={{ backgroundColor: 'var(--sf-accent)' }}><PlusIcon /> {loadingSave ? 'Saving...' : 'Save Surfer'}</button>}
+              {!wiki && <p className="text-yellow-300 text-base text-center">No Wikipedia match. Try a more specific spelling.</p>}
+              <button onClick={clearSearch} className="w-full py-3 bg-white/10 border border-white/20 text-white/80 rounded-xl text-xl text-center">Clear Search</button>
+            </div>
+          )}
+          <p className="text-gray-400 text-sm mt-3 text-center">Bio: Wikipedia.</p>
+        </div>
+      </div>
+    );
+  };
+
+  const Drawer = () => {
+    if (!drawerData) return null;
+    const { name, meta, wiki, loading: drawerLoading } = drawerData;
+    const photo = (wiki && wiki.thumbnail) || (meta && meta.thumbnail) || '';
+    const desc = (wiki && wiki.description) || (meta && meta.description) || '';
+    return (
+      <>
+        <div className="modal-overlay" onClick={() => setDrawerData(null)} />
+        <div className="modal-drawer">
+          <div className="flex justify-between items-center px-4 pt-4 pb-2 border-b border-white/15">
+            <h3 className="text-white font-bold text-2xl">{name}</h3>
+            <button onClick={() => setDrawerData(null)} className="text-gray-400 hover:text-white text-2xl font-bold">X</button>
+          </div>
+          <div className="p-4">
+            {drawerLoading && <div className="text-center py-8"><p className="text-white animate-pulse text-xl">Loading...</p></div>}
+            {!drawerLoading && (
+              <>
+                <div className="px-4 py-3 rounded-xl mb-3 text-center" style={{ background: 'linear-gradient(90deg, var(--sf-accent-2), var(--sf-accent))' }}>
+                  <p className="text-white font-black text-3xl">{name}</p>
+                </div>
+                <div className="flex gap-3 items-start mb-3">
+                  {photo ? <img src={photo} alt={name} className="w-20 h-20 rounded-full object-cover border-2 border-white/30 shrink-0" /> : <div className="w-20 h-20 rounded-full bg-black/40 flex items-center justify-center shrink-0 text-2xl text-white">?</div>}
+                  <div className="flex-1">
+                    {desc && <p className="text-teal-200 text-xl italic">{desc}</p>}
+                  </div>
+                </div>
+                {wiki && wiki.extract && <p className="text-gray-100 text-xl leading-relaxed mb-3">{wiki.extract}</p>}
+                {!wiki && !drawerLoading && <p className="text-yellow-300 text-base text-center">Couldn't reach Wikipedia just now.</p>}
+                <p className="text-gray-400 text-sm text-center mt-2">Bio: Wikipedia.</p>
+              </>
+            )}
+            <button onClick={() => setDrawerData(null)} className="w-full py-4 bg-white/10 border border-white/20 text-white rounded-xl text-xl mt-4">Close</button>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  return (
+    <PageWrapper>
+      {gate.modal}
+      <Drawer />
+      <div className={containerClass}>
+
+        {page === 'search' && (
+          <div className="space-y-3" style={{ paddingTop: PT }}>
+            <div className="flex flex-col items-center" style={{ height: PT, marginTop: '-' + PT, paddingTop: '4rem', paddingBottom: '1.5rem', pointerEvents: 'none' }}>
+              <h1 className="text-white font-black text-center" style={{ fontSize: isPhone ? '5.5rem' : '7.5rem', fontFamily: 'var(--sf-display-font)', letterSpacing: '0.04em', lineHeight: 0.9, textShadow: '0 4px 16px rgba(0,0,0,0.9)' }}>SURFER<br/>WATCH</h1>
+              <p className="text-white text-center" style={{ fontSize: isPhone ? '2rem' : '2.6rem', fontFamily: 'var(--sf-display-font)', letterSpacing: '0.04em', lineHeight: 1.05, textShadow: '0 2px 8px rgba(0,0,0,0.9)', marginTop: '1rem' }}>Who Are You<br/>Watching?</p>
+            </div>
+            <div className={cardClass} style={Object.assign({}, cardStyle, { overflowY: 'auto', maxHeight: 'calc(100dvh - ' + PT + ' - 6rem)' })}>
+              {searching && <p className="text-white text-center py-4 animate-pulse text-xl">Searching...</p>}
+              {!searched ? (
+                <div className="space-y-2">
+                  <ClearableInput value={searchName} onChange={(e) => setSearchName(e.target.value)} onBlur={(e) => setSearchName(smartTitleCase(e.target.value.trim()))} onKeyPress={(e) => e.key === 'Enter' && doSearch()} placeholder="Surfer name" inputClass={iClass} />
+                  <button onClick={doSearch} disabled={searching} className="w-full py-3 text-white rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 text-2xl font-bold" style={{ backgroundColor: 'var(--sf-accent)' }}>
+                    <SearchIcon /> {searching ? 'Searching...' : 'Find Surfer'}
+                  </button>
+                  <p className="text-gray-300 text-sm text-center">WSL pros, Triple Crown riders, big-wave chasers</p>
+                </div>
+              ) : (<SearchResultView />)}
+            </div>
+          </div>
+        )}
+
+        {page === 'watchlist' && (
+          <div className="space-y-3" style={{ paddingTop: '1rem' }}>
+            <div className={cardClass} style={cardStyle}>
+              <CardPageHeader title="Watchlist" subtitle="Tap a name to see their bio" />
+              <gate.CounterBanner />
+              {watchlist.length === 0 && (<div className="py-6 text-center"><p className="text-gray-200 text-xl leading-relaxed mb-2">No surfers yet.</p><p className="text-white text-xl font-medium">Use Search to add surfers.</p></div>)}
+              {watchlist.length > 0 && (
+                <div className="space-y-2 mt-2">
+                  {watchlist.map(w => {
+                    const meta = parseMeta(w.location);
+                    return (
+                      <div key={w.id} className="p-4 rounded-lg border bg-black/40 border-white/15">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {meta && meta.thumbnail ? <img src={meta.thumbnail} alt={w.name} className="w-14 h-14 rounded-full object-cover border border-white/20 shrink-0" /> : <div className="w-14 h-14 rounded-full bg-black/40 flex items-center justify-center shrink-0 text-xl text-white">?</div>}
+                            <div className="flex-1 min-w-0">
+                              <button onClick={() => openDrawer(w)} className="text-left w-full">
+                                <h3 className="font-semibold text-2xl text-white underline decoration-dotted truncate">{w.name}</h3>
+                              </button>
+                              {meta && meta.description && <p className="text-base text-gray-300 italic truncate">{meta.description}</p>}
+                              <div className="flex items-center gap-1 mt-1"><CheckIcon /><span className="text-xl text-green-300">Watching</span></div>
+                            </div>
+                          </div>
+                          <button onClick={() => delSurfer(w.id)} className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg ml-2 shrink-0"><TrashIcon /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {page === 'notifications' && (
+          <div className="space-y-3" style={{ paddingTop: '1rem' }}>
+            <div className={cardClass} style={cardStyle}>
+              <CardPageHeader title="Alerts" subtitle="Contest results, injuries, retirements, milestones" />
+              {!gate.isAuthed ? (
+                <gate.EmptyState message="Sign up to get alerts when the surfers you follow make news." ctaLabel="Sign up" />
+              ) : notifications.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-white font-bold text-2xl">No alerts yet</p>
+                  <p className="text-gray-200 text-xl mt-1">We're still wiring up the news feed -- alerts coming soon.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {notifications.map(n => (
+                    <div key={n.id} className="p-3 bg-black/50 border border-white/15 rounded-xl">
+                      <h3 className="font-bold text-white text-xl mb-1">{n.name}</h3>
+                      <p className="text-gray-200 text-xl">{n.message}</p>
+                      <p className="text-gray-400 text-base mt-1 mb-2">{new Date(n.created_at).toLocaleDateString()}</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => viewAlert(n)} className="flex-1 py-2 text-white rounded-lg text-xl font-bold" style={{ backgroundColor: 'var(--sf-accent)' }}>View</button>
+                        <button onClick={() => dismissAlert(n.id)} className="flex-1 py-2 bg-transparent border border-white/30 text-white/80 rounded-lg text-xl">Dismiss</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {page === 'about' && (
+          <div className="space-y-4 pb-8" style={{ paddingTop: '1rem' }}>
+            <div className={cardClass} style={cardStyle}>
+              <div className="mb-3 pb-2 border-b border-white/15 text-center">
+                <h2 className="text-4xl font-black text-white" style={{ fontFamily: 'var(--sf-display-font)', letterSpacing: '0.06em', textTransform: 'uppercase', WebkitTextStroke: '1px #fff' }}>About</h2>
+                <h2 className="text-4xl font-black text-white" style={{ fontFamily: 'var(--sf-display-font)', letterSpacing: '0.06em', textTransform: 'uppercase', WebkitTextStroke: '1px #fff' }}>{APP_NAME}</h2>
+              </div>
+              <p className="text-white/80 italic text-xl text-center mb-3">v{APP_VERSION}</p>
+              <div className="flex items-center gap-4 mb-4">
+                <img src={BILL_PHOTO} alt="Bill Spencer" className="w-14 h-14 rounded-full object-cover border-2 border-white/30 shrink-0" />
+                <div>
+                  <p className="font-bold text-white text-xl">Bill Spencer</p>
+                  <p className="text-white/70 italic text-xl">Founder</p>
+                  <a href="mailto:hello@surfer.watch" className="text-white/80 text-xl mt-1 block">hello@surfer.watch</a>
+                </div>
+              </div>
+              <p className="text-white text-2xl font-bold italic mb-3">{TAGLINE}</p>
+              <div className="space-y-3 text-gray-100 text-xl leading-relaxed">
+                <p>The surfers you care about, all in one place.</p>
+                <p>Add anyone -- WSL champions, Triple Crown riders, big-wave chasers, your favorite local -- and Surfer Watch keeps tabs on them. Bio, photo, and (soon) the contest results and milestones that matter.</p>
+                <p>No bloat. No noise. Just the surfers you picked.</p>
+              </div>
+            </div>
+            <div className={cardClass} style={cardStyle}>
+              <h3 className="text-white text-2xl font-bold mb-4 text-center" style={{ fontFamily: 'var(--sf-display-font)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>How it works</h3>
+              <div className="space-y-4">
+                <div className="flex gap-3 items-start"><span className="text-white text-2xl font-black w-7 shrink-0">1.</span><p className="text-gray-100 text-xl">Search for a surfer. We pull their bio and photo from Wikipedia.</p></div>
+                <div className="flex gap-3 items-start"><span className="text-white text-2xl font-black w-7 shrink-0">2.</span><p className="text-gray-100 text-xl">Save them with one tap. They land on your Watchlist.</p></div>
+                <div className="flex gap-3 items-start"><span className="text-white text-2xl font-black w-7 shrink-0">3.</span><p className="text-gray-100 text-xl">Tap a name on Watchlist to see their full card and re-pull the latest bio.</p></div>
+                <div className="flex gap-3 items-start"><span className="text-white text-2xl font-black w-7 shrink-0">4.</span><p className="text-gray-100 text-xl">Sign up to unlock alerts and unlimited saves. Anonymous users get up to {AUTH_GATE_CONFIG.freeAnonLimit} saves to try it out.</p></div>
+              </div>
+            </div>
+            <div className={cardClass} style={cardStyle}>
+              <h3 className="font-bold text-white mb-1 text-2xl" style={{ fontFamily: 'var(--sf-display-font)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Privacy</h3>
+              <p className="text-white/60 text-xl mb-3">Last updated: May 2026</p>
+              <div className="space-y-3 text-gray-100 text-xl leading-relaxed">
+                <p><strong className="text-white">We collect:</strong> your email, watchlist, and search activity.</p>
+                <p><strong className="text-white">We do not:</strong> sell your data, ever.</p>
+                <p><strong className="text-white">Sources:</strong> Bio and photo data from Wikipedia. Contest and ranking data coming in a future update.</p>
+                <p><strong className="text-white">Your rights:</strong> Delete your account and all data anytime.</p>
+                <a href="mailto:hello@surfer.watch" className="text-white/80 text-xl">hello@surfer.watch</a>
+              </div>
+            </div>
+            <div className={cardClass} style={cardStyle}>
+              <h3 className="text-white text-2xl font-bold mb-3 text-center">Try our other Watchlist apps</h3>
+              <div className="space-y-3">
+                <a href="https://3brains.app" target="_blank" rel="noopener noreferrer"
+                  className="block w-full py-4 text-white text-center rounded-xl text-xl font-semibold"
+                  style={{ backgroundColor: 'var(--sf-accent)' }}>
+                  Visit Our Site
+                </a>
+              </div>
+            </div>
+            <div className="px-1 space-y-3 pb-2">
+              {gate.isAuthed ? (
+                <>
+                  <div className="p-3 bg-black/40 rounded-xl"><p className="font-medium text-white text-xl text-center">{user && user.email}</p></div>
+                  <button onClick={doLogout} className="w-full py-4 text-white rounded-xl text-2xl font-bold" style={{ backgroundColor: 'var(--sf-accent)' }}>Sign Out</button>
+                  <button onClick={() => setShowDangerZone(!showDangerZone)} className="w-full py-3 text-white/60 text-xl text-center">{showDangerZone ? 'Hide' : 'Account Removal'}</button>
+                  {showDangerZone && (
+                    <div className="space-y-3">
+                      {!showDeleteConfirm ? <button onClick={() => setShowDeleteConfirm(true)} className="w-full py-4 bg-black/60 border border-white/20 text-red-300 rounded-xl text-xl">Delete Account</button> : <div className="bg-black/80 border border-white/20 rounded-2xl p-5 space-y-3"><h3 className="font-bold text-red-300 text-xl">Are you sure?</h3><p className="text-white/80 text-xl">This permanently deletes your account.</p><button onClick={doDeleteAccount} className="w-full py-4 bg-red-700 text-white rounded-xl font-bold text-xl">Yes, Delete My Account</button><button onClick={() => { setShowDeleteConfirm(false); setShowDangerZone(false); }} className="w-full py-4 bg-white/10 border border-white/20 text-white rounded-xl text-xl">Cancel</button></div>}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="p-3 bg-black/40 rounded-xl text-center">
+                    <p className="text-white text-xl mb-2">Trying it out? You can save up to {AUTH_GATE_CONFIG.freeAnonLimit} surfers without an account.</p>
+                    <p className="text-white/70 text-lg">Sign up for unlimited saves and alerts.</p>
+                  </div>
+                  <button onClick={() => gate.openSignup()} className="w-full py-4 text-white rounded-xl text-2xl font-bold" style={{ backgroundColor: 'var(--sf-accent)' }}>Sign Up</button>
+                  <button onClick={() => gate.openSignin()} className="w-full py-3 bg-white/10 border border-white/20 text-white rounded-xl text-xl">Already have an account? Sign In</button>
+                </>
+              )}
+            </div>
+            <p className="text-white/40 text-center text-sm pb-4">v{APP_VERSION}</p>
+          </div>
+        )}
+
+      </div>
+
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', borderTop: '1px solid rgba(255,255,255,0.15)', padding: '0.5rem 1rem', paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+        <div className="flex justify-around max-w-sm mx-auto">
+          <button onClick={() => { clearSearch(); setPage('search'); }} className={'flex flex-col items-center gap-0.5 px-1 py-1 ' + (page === 'search' ? 'text-white' : 'text-gray-400')}><SearchIcon /><span className="text-xl font-medium">Search</span></button>
+          <button onClick={() => setPage('watchlist')} className={'flex flex-col items-center gap-0.5 px-1 py-1 ' + (page === 'watchlist' ? 'text-white' : 'text-gray-400')}><HeartIcon /><span className="text-xl font-medium">Watchlist</span></button>
+          <button onClick={() => setPage('about')} className={'flex flex-col items-center gap-0.5 px-1 py-1 ' + (page === 'about' ? 'text-white' : 'text-gray-400')}><InfoIcon /><span className="text-xl font-medium">Info</span></button>
+          <button onClick={() => setPage('notifications')} className={'flex flex-col items-center gap-0.5 px-1 py-1 relative ' + (page === 'notifications' ? 'text-white' : 'text-gray-400')}>
+            <BellIcon red={unreadCount > 0} />
+            {unreadCount > 0 && <span className="absolute top-0 right-1 text-white text-xl font-bold rounded-full w-4 h-4 flex items-center justify-center" style={{ backgroundColor: 'var(--sf-accent-2)' }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+            <span className="text-xl font-medium">Alerts</span>
+          </button>
+        </div>
+        <p className="text-center text-white/40 text-xs mt-1" style={{ display: page === 'search' ? 'none' : 'block' }}>app v{APP_VERSION} | api v{apiVersion}</p>
+      </div>
+    </PageWrapper>
+  );
+
+  function SearchResultView() {
+    if (!searchResults) return null;
+    const { wiki, queryName } = searchResults;
+    if (!wiki) {
+      return (
+        <div className="rounded-2xl overflow-hidden border border-white/15 shadow-lg" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+          <div className="px-5 py-3 bg-cyan-800 text-center"><p className="text-white font-black text-3xl">{queryName}</p><p className="text-white/90 text-xl">No Wikipedia match found</p></div>
+          <div className="p-4">
+            <p className="text-gray-200 text-xl text-center py-4">Try a more specific spelling, or include the surfer's full name.</p>
+            <button onClick={clearSearch} className="w-full py-3 bg-white/10 border border-white/20 text-white/80 rounded-xl text-xl text-center mt-2">Clear Search</button>
+          </div>
+        </div>
+      );
+    }
+    return <SurferCard wiki={wiki} queryName={queryName} showSaveButton={true} />;
+  }
+}
+
+ReactDOM.render(React.createElement(App), document.getElementById('root'));
+</script>
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</body>
+</html>
