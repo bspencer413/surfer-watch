@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#0e7490">
+  <meta name="theme-color" content="#0d9488">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Surfer Watch">
@@ -19,7 +19,7 @@
   <meta property="og:description" content="Add any surfer to your watchlist. Follow the riders behind the waves.">
   <meta property="og:url" content="https://surfer.watch">
   <meta property="og:type" content="website">
-  <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjogIlN1cmZlciBXYXRjaCIsICJzaG9ydF9uYW1lIjogIlNGIiwgInN0YXJ0X3VybCI6ICIvIiwgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMwNTJlM2YiLCAidGhlbWVfY29sb3IiOiAiIzBlNzQ5MCJ9">
+  <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjogIlN1cmZlciBXYXRjaCIsICJzaG9ydF9uYW1lIjogIlN1cmYiLCAic3RhcnRfdXJsIjogIi8iLCAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwgImJhY2tncm91bmRfY29sb3IiOiAiIzA1MmUzZiIsICJ0aGVtZV9jb2xvciI6ICIjMGQ5NDg4In0=">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,23 +30,23 @@
   <style>
     /* SKIN CSS VARS -- reskinner v0.3 will target these */
     :root {
-      --sf-accent: #0d9488;       /* teal-600 -- ocean primary */
-      --sf-accent-2: #0891b2;     /* cyan-600 -- ocean secondary */
-      --sf-bg-gradient: linear-gradient(180deg, #075985 0%, #0e7490 45%, #14b8a6 100%);
-      --sf-bg-overlay: rgba(0,0,0,0.22);
-      --sf-signin-blur: blur(2px);
-      --sf-card-bg: rgba(0,0,0,0.55);
-      --sf-card-border: rgba(255,255,255,0.15);
-      --sf-drawer-bg: #052e3f;
-      --sf-display-font: 'Graduate', Georgia, serif;
+      --pw-accent: #0d9488;
+      --pw-accent-2: #0891b2;
+      --pw-bg-gradient: linear-gradient(180deg, #075985 0%, #0e7490 45%, #14b8a6 100%);
+      --pw-bg-overlay: rgba(0,0,0,0.20);
+      --pw-signin-blur: blur(2px);
+      --pw-card-bg: rgba(0,0,0,0.55);
+      --pw-card-border: rgba(255,255,255,0.15);
+      --pw-drawer-bg: #052e3f;
+      --pw-display-font: 'Graduate', Georgia, serif;
     }
     * { -webkit-tap-highlight-color: transparent; font-family: Georgia, 'Times New Roman', serif; }
     html, body { height: 100%; overflow-x: hidden; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     .modal-drawer {
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
-      background: var(--sf-drawer-bg); border-radius: 20px 20px 0 0;
-      border-top: 1px solid var(--sf-card-border);
+      background: var(--pw-drawer-bg); border-radius: 20px 20px 0 0;
+      border-top: 1px solid var(--pw-card-border);
       max-height: 85vh; overflow-y: auto;
       transform: translateY(0); transition: transform 0.3s ease;
       padding-bottom: max(1rem, env(safe-area-inset-bottom));
@@ -59,19 +59,14 @@
 <script type="text/babel">
 const { useState, useEffect } = React;
 
-/* SKIN BLOCK -- mirrors what reskinner v0.3 will produce.
-   ┌─ PLACEHOLDERS TO CONFIRM ──────────────────────────────────────
-   │ SF_REPO    -- adjust to actual GitHub raw path once repo named
-   │ API_BASE   -- adjust to actual Render URL once backend deployed
-   │ SIGNIN_BG  -- filename of the surf photo Bill uploads to repo
-   └────────────────────────────────────────────────────────────────  */
+/* SKIN BLOCK -- mirrors what reskinner v0.3 will produce. */
 const APP_NAME = 'Surfer Watch';
 const APP_VERSION = '0.1.0';
 const API_BASE = 'https://surfer-watch-backend.onrender.com';
-const SF_REPO = 'https://raw.githubusercontent.com/bspencer413/surfer-watch/main';
-const SIGNIN_BG = SF_REPO + '/signin-background.jpg';
+const PW_REPO = 'https://raw.githubusercontent.com/bspencer413/surfer-watch/main';
+const SIGNIN_BG = PW_REPO + '/signin-background.png';
 const BILL_PHOTO = 'https://raw.githubusercontent.com/bspencer413/memorial-watch/main/Bill.jpeg';
-const TAGLINE = 'Who Are You Watching?';
+const TAGLINE = 'Who are you watching?';
 const TAGLINE_SUB = 'Track the surfers riding the world\'s best breaks';
 
 const isPhone = window.innerWidth < 500;
@@ -81,16 +76,65 @@ const PT = isPhone ? '36vh' : isTablet ? '40vh' : '38vh';
 // ============================================================================
 // AuthGate v0.3.1 — 3Brains portable account + anonymous-storage component
 // ============================================================================
-// Identical to Player Watch v1.0.28. Only AUTH_GATE_CONFIG differs per app.
-// See PW for full documentation.
+//
+// PURPOSE
+// Drop-in component for any 3Brains app. Handles:
+//   1. Anonymous users save up to freeAnonLimit items to localStorage
+//   2. At the cap, the signup modal opens automatically
+//   3. On signup, localStorage items migrate to the server
+//   4. Returning users sign in via the same modal
+//
+// INSTALL IN A NEW 3BRAINS APP
+//   (a) Paste this entire block into the host index.html immediately AFTER
+//       the SKIN BLOCK constants (so API_BASE is already declared).
+//   (b) Adjust AUTH_GATE_CONFIG below for the host app:
+//         - apiBase, tokenKey, userKey, anonStorageKey, anonSnapshotPrefix
+//         - appName, saveActionLabel, itemNoun, upgradeBenefit
+//         - accentColor (CSS var reference for the host app)
+//   (c) Inside the App() component, at the very top, add:
+//         const gate = useAuthGate(AUTH_GATE_CONFIG);
+//   (d) Use the gate interface throughout App:
+//         - gate.isAuthed (boolean)
+//         - gate.user (object or null)
+//         - gate.list (saved items array, anon localStorage or server)
+//         - gate.add(item) — routes anon vs server, enforces cap
+//         - gate.remove(id) — routes anon vs server
+//         - gate.requireAuth(callback) — gate any action behind sign-in
+//         - gate.openSignup() / gate.openSignin() — open the modal manually
+//         - gate.signOut() — clear token + user, list flips to anon
+//   (e) Render once at the root of the App return:
+//         {gate.modal}                  // v0.3.1: JSX, not a component
+//   (f) Render <gate.CounterBanner /> on save-list pages (anon-only display)
+//   (g) Render <gate.EmptyState message="..." /> on auth-gated tabs
+//
+// BACKEND REQUIREMENTS (already met by all 3Brains backends)
+//   POST {registerEndpoint} {email, password} -> {access_token, token_type}
+//   POST {loginEndpoint} {email, password} -> {access_token, token_type}
+//   GET {watchlistEndpoint} -> [{id, name, location, ...}, ...]
+//   POST {watchlistEndpoint} {name, location} -> {id, name, location}
+//   DELETE {watchlistEndpoint}/{id} -> any 2xx
+//
+// MIGRATION FROM PASSWORD TO MAGIC-LINK (Phase 2 / Step B)
+//   Swap the body of submitModal() to call the magic-link request endpoint
+//   and replace the password input with a single email field. The public
+//   surface (gate.add, gate.requireAuth, etc.) does not change — host apps
+//   keep working without modification.
+//
+// CONSTRAINTS (matches all 3Brains apps)
+//   - No JS spread operators (iOS Safari friction). Uses Object.assign / concat.
+//   - No Tailwind JIT arbitrary classes. All styling is inline-style objects.
+//   - React 18 via CDN + Babel. No build toolchain.
+//   - Dark theme assumed. Colors configurable via accentColor + modalBg.
 // ============================================================================
 
+// --- PER-APP CONFIG ---------------------------------------------------------
+// Adjust these values when installing in a new 3Brains app.
 const AUTH_GATE_CONFIG = {
   apiBase: API_BASE,
   tokenKey: 'token',
   userKey: 'user',
   anonStorageKey: 'surf_anon_watchlist',
-  anonSnapshotPrefix: 'surf_meta_',
+  anonSnapshotPrefix: 'surf_stats_',
   watchlistEndpoint: '/watchlist',
   loginEndpoint: '/auth/login',
   registerEndpoint: '/auth/register',
@@ -99,19 +143,20 @@ const AUTH_GATE_CONFIG = {
   saveActionLabel: 'save this surfer',
   itemNoun: 'surfers',
   upgradeBenefit: 'unlimited saves and 12-hour alerts on the surfers you follow',
-  accentColor: 'var(--sf-accent)',
-  modalBg: 'rgba(5,46,63,0.82)',
+  accentColor: 'var(--pw-accent)',
+  modalBg: 'rgba(10,15,30,0.80)',
   modalBackdropImage: SIGNIN_BG,
   stayLoggedInDefault: true
 };
 
+// --- HOOK -------------------------------------------------------------------
 function useAuthGate(config) {
   const [isAuthed, setIsAuthed] = useState(false);
   const [user, setUser] = useState(null);
   const [list, setList] = useState([]);
   const [listLoading, setListLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('signup');
+  const [modalMode, setModalMode] = useState('signup'); // 'signup' | 'signin'
   const [modalMessage, setModalMessage] = useState(null);
   const [modalEmail, setModalEmail] = useState('');
   const [modalPassword, setModalPassword] = useState('');
@@ -120,8 +165,13 @@ function useAuthGate(config) {
   const [modalError, setModalError] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
   const [backendWaking, setBackendWaking] = useState(false);
-  const [stayLoggedIn, setStayLoggedIn] = useState(config.stayLoggedInDefault !== false);
+  // v0.3.1: persistence toggle. true = localStorage (survives browser close).
+  // false = sessionStorage (cleared on browser/tab close).
+  const [stayLoggedIn, setStayLoggedIn] = useState(
+    config.stayLoggedInDefault !== false
+  );
 
+  // -- localStorage helpers
   const readAnonList = () => {
     try {
       const raw = localStorage.getItem(config.anonStorageKey);
@@ -134,8 +184,14 @@ function useAuthGate(config) {
   };
   const genAnonId = () => 'anon_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
-  const readToken = () => localStorage.getItem(config.tokenKey) || sessionStorage.getItem(config.tokenKey);
-  const readUserRaw = () => localStorage.getItem(config.userKey) || sessionStorage.getItem(config.userKey);
+  // -- v0.3.1 Storage helpers: route between localStorage (persistent) and
+  //    sessionStorage (cleared on browser close), based on stayLoggedIn.
+  const readToken = () => {
+    return localStorage.getItem(config.tokenKey) || sessionStorage.getItem(config.tokenKey);
+  };
+  const readUserRaw = () => {
+    return localStorage.getItem(config.userKey) || sessionStorage.getItem(config.userKey);
+  };
   const writeAuth = (token, userJson, persistent) => {
     localStorage.removeItem(config.tokenKey);
     localStorage.removeItem(config.userKey);
@@ -152,6 +208,7 @@ function useAuthGate(config) {
     sessionStorage.removeItem(config.userKey);
   };
 
+  // -- Server fetch helpers
   const serverGet = async () => {
     const t = readToken();
     const r = await fetch(config.apiBase + config.watchlistEndpoint, {
@@ -161,6 +218,7 @@ function useAuthGate(config) {
     return await r.json();
   };
   const serverAdd = async (item) => {
+    // v0.3.1: pass item shape through unchanged. Host app controls payload.
     const t = readToken();
     const r = await fetch(config.apiBase + config.watchlistEndpoint, {
       method: 'POST',
@@ -180,6 +238,7 @@ function useAuthGate(config) {
     return true;
   };
 
+  // -- Refresh the public list (anon localStorage or server, depending on auth)
   const refreshList = async () => {
     setListLoading(true);
     try {
@@ -193,6 +252,7 @@ function useAuthGate(config) {
     }
   };
 
+  // -- Mount: hydrate token + user from either storage (v0.3.1)
   useEffect(() => {
     const t = readToken();
     const u = readUserRaw();
@@ -203,15 +263,24 @@ function useAuthGate(config) {
   // eslint-disable-next-line
   }, []);
 
+  // -- Reload list whenever auth flips. Also self-heal: if signed in and any
+  //    anon items remain in localStorage (e.g. from a failed migration), retry.
   useEffect(() => {
     refreshList();
     if (isAuthed) {
       const anon = readAnonList();
-      if (anon && anon.length > 0) migrateAnonToServer(anon);
+      if (anon && anon.length > 0) {
+        migrateAnonToServer(anon);
+      }
     }
   // eslint-disable-next-line
   }, [isAuthed]);
 
+  // -- Anon -> server migration (called on signup, also self-heal on mount)
+  //    Atomic per-item: each anon item is POSTed individually, removed from
+  //    anon list on success. Partial failure leaves remaining items in anon
+  //    storage for a future retry. Snapshot keys are remapped from temp anon
+  //    IDs to server IDs as part of the migration.
   const migrateAnonToServer = async (anonItems) => {
     let remaining = anonItems.slice();
     let migrated = 0;
@@ -219,6 +288,7 @@ function useAuthGate(config) {
       const anonItem = anonItems[i];
       try {
         const created = await serverAdd({ name: anonItem.name, location: anonItem.location });
+        // Remap snapshot key if it exists under the temp anon ID
         try {
           const oldKey = config.anonSnapshotPrefix + anonItem.id;
           const oldSnap = localStorage.getItem(oldKey);
@@ -232,7 +302,7 @@ function useAuthGate(config) {
         migrated++;
       } catch (e) {
         console.error('AuthGate: migration failed for item', anonItem.id, e);
-        break;
+        break; // leave remaining for retry
       }
     }
     if (remaining.length === 0) {
@@ -242,23 +312,39 @@ function useAuthGate(config) {
     return migrated;
   };
 
+  // -- Modal openers/closer
   const openSignup = (msg) => {
-    setModalMode('signup'); setModalMessage(msg || null);
-    setModalEmail(''); setModalPassword(''); setModalError(null); setModalOpen(true);
+    setModalMode('signup');
+    setModalMessage(msg || null);
+    setModalEmail(''); setModalPassword('');
+    setModalError(null);
+    setModalOpen(true);
   };
   const openSignin = (msg) => {
-    setModalMode('signin'); setModalMessage(msg || null);
-    setModalEmail(''); setModalPassword(''); setModalError(null); setModalOpen(true);
+    setModalMode('signin');
+    setModalMessage(msg || null);
+    setModalEmail(''); setModalPassword('');
+    setModalError(null);
+    setModalOpen(true);
   };
   const closeModal = () => {
-    setModalOpen(false); setModalEmail(''); setModalPassword('');
-    setModalMessage(null); setModalError(null); setPendingAction(null);
+    setModalOpen(false);
+    setModalEmail(''); setModalPassword('');
+    setModalMessage(null); setModalError(null);
+    setPendingAction(null);
   };
 
   const signOut = () => {
-    clearAuth(); setUser(null); setIsAuthed(false);
+    clearAuth();
+    setUser(null);
+    setIsAuthed(false);
+    // The isAuthed-watching useEffect will reload the list from anon storage
   };
 
+  // -- Public: add an item. Routes anon vs server, enforces anon cap.
+  //    Returns the created item ({id, name, location, ...}) on success.
+  //    Returns null when the anon cap is hit (AuthGate opens the modal and
+  //    queues the action to replay after signup).
   const add = async (item) => {
     if (isAuthed) {
       const created = await serverAdd(item);
@@ -274,8 +360,12 @@ function useAuthGate(config) {
     }
     const id = genAnonId();
     const newItem = {
-      id: id, name: item.name, location: item.location,
-      status: 'active', is_resolved: false, resolution_outcome: null,
+      id: id,
+      name: item.name,
+      location: item.location,
+      status: 'active',
+      is_resolved: false,
+      resolution_outcome: null,
       created_at: new Date().toISOString()
     };
     const updated = current.concat([newItem]);
@@ -284,6 +374,7 @@ function useAuthGate(config) {
     return newItem;
   };
 
+  // -- Public: remove an item by id (anon or server)
   const remove = async (id) => {
     if (isAuthed) {
       await serverRemove(id);
@@ -296,6 +387,9 @@ function useAuthGate(config) {
     await refreshList();
   };
 
+  // -- Public: gate an arbitrary action behind sign-in. Runs callback
+  //    immediately if authed; otherwise opens the modal and replays the
+  //    callback after successful sign-in / sign-up.
   const requireAuth = (callback) => {
     if (isAuthed) { callback(); return true; }
     setPendingAction({ type: 'callback', fn: callback });
@@ -303,12 +397,15 @@ function useAuthGate(config) {
     return false;
   };
 
+  // -- Modal submit (calls login or register against backend)
   const submitModal = async () => {
     if (!modalEmail || !modalPassword) {
       setModalError('Email and password required.');
       return;
     }
-    setModalLoading(true); setModalError(null); setBackendWaking(false);
+    setModalLoading(true);
+    setModalError(null);
+    setBackendWaking(false);
     const wakeTimer = setTimeout(() => setBackendWaking(true), 3000);
     try {
       const endpoint = modalMode === 'signup' ? config.registerEndpoint : config.loginEndpoint;
@@ -325,12 +422,19 @@ function useAuthGate(config) {
       const data = await r.json();
       const u = { email: modalEmail, name: modalEmail.split('@')[0] };
       writeAuth(data.access_token, JSON.stringify(u), stayLoggedIn);
-      setUser(u); setIsAuthed(true);
+      setUser(u);
+      setIsAuthed(true);
+      // The isAuthed effect handles refreshList + migration
 
       const pa = pendingAction;
-      setPendingAction(null); setModalOpen(false);
-      setModalEmail(''); setModalPassword(''); setModalMessage(null);
+      setPendingAction(null);
+      setModalOpen(false);
+      setModalEmail(''); setModalPassword('');
+      setModalMessage(null);
 
+      // Replay pending action after isAuthed has propagated. We re-do the
+      // add through serverAdd directly (not gate.add) because the closure
+      // captured the old isAuthed=false.
       if (pa) {
         setTimeout(async () => {
           try {
@@ -351,116 +455,129 @@ function useAuthGate(config) {
     }
   };
 
+  // -- Modal component
+  // v0.3.1: Return modal as JSX (use as {gate.modal}). Defining as a closure-based
+  // component caused remount-on-every-render, dropping keyboard focus on each keystroke.
   const isSignup = modalMode === 'signup';
   const modal = !modalOpen ? null : (
-    <>
-      <div onClick={closeModal} style={Object.assign(
-        { position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, zIndex: 999, backgroundColor: 'rgba(0,0,0,0.7)' },
-        config.modalBackdropImage ? {
-          backgroundImage: 'url(' + config.modalBackdropImage + ')',
-          backgroundSize: 'cover', backgroundPosition: 'center',
-          backgroundColor: 'rgba(0,0,0,0.35)'
-        } : {}
-      )} />
-      <div style={{
-        position: 'fixed', zIndex: 1000,
-        left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
-        width: 'calc(100% - 2rem)', maxWidth: '420px',
-        backgroundColor: config.modalBg, borderRadius: '20px',
-        border: '1px solid rgba(255,255,255,0.15)', padding: '1.5rem',
-        backdropFilter: 'blur(8px)', boxShadow: '0 10px 40px rgba(0,0,0,0.6)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-          <h2 style={{ color: '#fff', fontSize: '1.75rem', fontWeight: 700, margin: 0, lineHeight: 1.1 }}>
-            {isSignup ? 'Sign up' : 'Sign in'}
-          </h2>
-          <button onClick={closeModal} type="button" style={{
-            background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.6)',
-            fontSize: '1.75rem', fontWeight: 700, cursor: 'pointer', lineHeight: 1, padding: '0 0.25rem'
-          }}>X</button>
-        </div>
-        {isSignup && (
-          <p style={{ color: 'rgba(255,255,255,0.80)', fontSize: '1rem', lineHeight: 1.4, marginBottom: '0.75rem' }}>
-            Sign up for {config.upgradeBenefit}.
-          </p>
-        )}
-        {modalMessage && (
-          <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '1.125rem', lineHeight: 1.4, marginBottom: '1rem' }}>
-            {modalMessage}
-          </p>
-        )}
-        <input type="email" placeholder="Email address" value={modalEmail}
-          onChange={(e) => setModalEmail(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && submitModal()}
-          autoComplete="email"
-          style={{
-            width: '100%', padding: '0.75rem 1rem', borderRadius: '12px',
-            backgroundColor: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)',
-            color: '#fff', fontSize: '1.125rem', marginBottom: '0.75rem',
-            boxSizing: 'border-box', outline: 'none'
-          }} />
-        <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
-          <input type={modalShowPwd ? 'text' : 'password'} placeholder="Password"
-            value={modalPassword}
-            onChange={(e) => setModalPassword(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && submitModal()}
-            autoComplete={isSignup ? 'new-password' : 'current-password'}
-            style={{
-              width: '100%', padding: '0.75rem 3rem 0.75rem 1rem', borderRadius: '12px',
-              backgroundColor: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)',
-              color: '#fff', fontSize: '1.125rem', boxSizing: 'border-box', outline: 'none'
-            }} />
-          <button onClick={() => setModalShowPwd(!modalShowPwd)} type="button"
-            style={{
-              position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
-              background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.6)',
-              cursor: 'pointer', fontSize: '0.875rem', padding: '0.25rem'
-            }}>{modalShowPwd ? 'hide' : 'show'}</button>
-        </div>
-        {backendWaking && (
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '1rem', textAlign: 'center', marginBottom: '0.75rem' }}>
-            Waking up the server...
-          </p>
-        )}
-        {modalError && (
-          <p style={{ color: '#f87171', fontSize: '1rem', textAlign: 'center', marginBottom: '0.75rem' }}>
-            {modalError}
-          </p>
-        )}
-        <label style={{
-          display: 'flex', alignItems: 'center', gap: '0.5rem',
-          color: 'rgba(255,255,255,0.85)', fontSize: '1rem',
-          marginBottom: '0.75rem', cursor: 'pointer'
+      <>
+        <div onClick={closeModal} style={Object.assign(
+          {
+            position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, zIndex: 999,
+            backgroundColor: 'rgba(0,0,0,0.7)'
+          },
+          config.modalBackdropImage ? {
+            backgroundImage: 'url(' + config.modalBackdropImage + ')',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundColor: 'rgba(0,0,0,0.35)'
+          } : {}
+        )} />
+        <div style={{
+          position: 'fixed', zIndex: 1000,
+          left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+          width: 'calc(100% - 2rem)', maxWidth: '420px',
+          backgroundColor: config.modalBg,
+          borderRadius: '20px',
+          border: '1px solid rgba(255,255,255,0.15)',
+          padding: '1.5rem',
+          backdropFilter: 'blur(8px)',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.6)'
         }}>
-          <input type="checkbox" checked={stayLoggedIn}
-            onChange={(e) => setStayLoggedIn(e.target.checked)}
-            style={{ width: '1.1rem', height: '1.1rem', cursor: 'pointer' }} />
-          Stay signed in on this device
-        </label>
-        <button onClick={submitModal} disabled={modalLoading} type="button"
-          style={{
-            width: '100%', padding: '1rem', borderRadius: '12px',
-            backgroundColor: config.accentColor, color: '#fff', fontSize: '1.25rem',
-            fontWeight: 700, border: 'none', cursor: 'pointer',
-            opacity: modalLoading ? 0.5 : 1, marginBottom: '0.75rem'
-          }}>
-          {modalLoading ? '...' : (isSignup ? 'Sign up' : 'Sign in')}
-        </button>
-        <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '1rem', textAlign: 'center', margin: 0 }}>
-          {isSignup ? 'Already have an account? ' : 'New here? '}
-          <button onClick={() => { setModalMode(isSignup ? 'signin' : 'signup'); setModalError(null); }} type="button"
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+            <h2 style={{ color: '#fff', fontSize: '1.75rem', fontWeight: 700, margin: 0, lineHeight: 1.1 }}>
+              {isSignup ? 'Sign up' : 'Sign in'}
+            </h2>
+            <button onClick={closeModal} type="button" style={{
+              background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.6)',
+              fontSize: '1.75rem', fontWeight: 700, cursor: 'pointer', lineHeight: 1, padding: '0 0.25rem'
+            }}>X</button>
+          </div>
+          {/* v0.3.1: Always-shown value-prop subhead. Tells the user *why*. */}
+          {isSignup && (
+            <p style={{ color: 'rgba(255,255,255,0.80)', fontSize: '1rem', lineHeight: 1.4, marginBottom: '0.75rem' }}>
+              Sign up for {config.upgradeBenefit}.
+            </p>
+          )}
+          {modalMessage && (
+            <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '1.125rem', lineHeight: 1.4, marginBottom: '1rem' }}>
+              {modalMessage}
+            </p>
+          )}
+          <input type="email" placeholder="Email address" value={modalEmail}
+            onChange={(e) => setModalEmail(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && submitModal()}
+            autoComplete="email"
             style={{
-              background: 'transparent', border: 'none', color: config.accentColor,
-              fontSize: '1rem', fontWeight: 700, cursor: 'pointer', padding: 0,
-              textDecoration: 'underline'
+              width: '100%', padding: '0.75rem 1rem', borderRadius: '12px',
+              backgroundColor: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)',
+              color: '#fff', fontSize: '1.125rem', marginBottom: '0.75rem',
+              boxSizing: 'border-box', outline: 'none'
+            }} />
+          <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+            <input type={modalShowPwd ? 'text' : 'password'} placeholder="Password"
+              value={modalPassword}
+              onChange={(e) => setModalPassword(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && submitModal()}
+              autoComplete={isSignup ? 'new-password' : 'current-password'}
+              style={{
+                width: '100%', padding: '0.75rem 3rem 0.75rem 1rem', borderRadius: '12px',
+                backgroundColor: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)',
+                color: '#fff', fontSize: '1.125rem', boxSizing: 'border-box', outline: 'none'
+              }} />
+            <button onClick={() => setModalShowPwd(!modalShowPwd)} type="button"
+              style={{
+                position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
+                background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.6)',
+                cursor: 'pointer', fontSize: '0.875rem', padding: '0.25rem'
+              }}>{modalShowPwd ? 'hide' : 'show'}</button>
+          </div>
+          {backendWaking && (
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '1rem', textAlign: 'center', marginBottom: '0.75rem' }}>
+              Waking up the server...
+            </p>
+          )}
+          {modalError && (
+            <p style={{ color: '#f87171', fontSize: '1rem', textAlign: 'center', marginBottom: '0.75rem' }}>
+              {modalError}
+            </p>
+          )}
+          {/* v0.3.1: Stay-signed-in toggle. Default ON. Off = sessionStorage = sign-out on browser close. */}
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem',
+            color: 'rgba(255,255,255,0.85)', fontSize: '1rem',
+            marginBottom: '0.75rem', cursor: 'pointer'
+          }}>
+            <input type="checkbox" checked={stayLoggedIn}
+              onChange={(e) => setStayLoggedIn(e.target.checked)}
+              style={{ width: '1.1rem', height: '1.1rem', cursor: 'pointer' }} />
+            Stay signed in on this device
+          </label>
+          <button onClick={submitModal} disabled={modalLoading} type="button"
+            style={{
+              width: '100%', padding: '1rem', borderRadius: '12px',
+              backgroundColor: config.accentColor, color: '#fff', fontSize: '1.25rem',
+              fontWeight: 700, border: 'none', cursor: 'pointer',
+              opacity: modalLoading ? 0.5 : 1, marginBottom: '0.75rem'
             }}>
-            {isSignup ? 'Sign in' : 'Sign up'}
+            {modalLoading ? '...' : (isSignup ? 'Sign up' : 'Sign in')}
           </button>
-        </p>
-      </div>
-    </>
-  );
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '1rem', textAlign: 'center', margin: 0 }}>
+            {isSignup ? 'Already have an account? ' : 'New here? '}
+            <button onClick={() => { setModalMode(isSignup ? 'signin' : 'signup'); setModalError(null); }} type="button"
+              style={{
+                background: 'transparent', border: 'none', color: config.accentColor,
+                fontSize: '1rem', fontWeight: 700, cursor: 'pointer', padding: 0,
+                textDecoration: 'underline'
+              }}>
+              {isSignup ? 'Sign in' : 'Sign up'}
+            </button>
+          </p>
+        </div>
+      </>
+    );
 
+  // -- Empty-state for auth-gated tabs (e.g. Alerts when anon)
   const EmptyState = ({ message, ctaLabel }) => (
     <div style={{ padding: '2rem 1rem', textAlign: 'center' }}>
       <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '1.25rem', lineHeight: 1.5, marginBottom: '1.25rem' }}>
@@ -477,6 +594,7 @@ function useAuthGate(config) {
     </div>
   );
 
+  // -- Counter banner for save-list pages (anon-only display)
   const CounterBanner = () => {
     if (isAuthed) return null;
     const count = list.length;
@@ -506,12 +624,22 @@ function useAuthGate(config) {
   const atLimit = !isAuthed && list.length >= config.freeAnonLimit;
 
   return {
-    isAuthed: isAuthed, user: user, list: list, listLoading: listLoading,
-    count: list.length, atLimit: atLimit,
-    add: add, remove: remove, refreshList: refreshList,
+    isAuthed: isAuthed,
+    user: user,
+    list: list,
+    listLoading: listLoading,
+    count: list.length,
+    atLimit: atLimit,
+    add: add,
+    remove: remove,
+    refreshList: refreshList,
     requireAuth: requireAuth,
-    openSignup: openSignup, openSignin: openSignin, signOut: signOut,
-    modal: modal, EmptyState: EmptyState, CounterBanner: CounterBanner
+    openSignup: openSignup,
+    openSignin: openSignin,
+    signOut: signOut,
+    modal: modal,                            // v0.3.1: JSX (host renders {gate.modal}). Stable, preserves focus.
+    EmptyState: EmptyState,
+    CounterBanner: CounterBanner
   };
 }
 
@@ -522,18 +650,121 @@ function useAuthGate(config) {
 const toTitleCase = (s) => s ? s.replace(/\w\S*/g, t => t.charAt(0).toUpperCase() + t.substr(1).toLowerCase()).replace(/'\w/g, t => t.toUpperCase()) : s;
 const smartTitleCase = (s) => s ? s.trim().replace(/\s+/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : s;
 
-// Wikipedia -- the only bio + photo source for v0.1
-// (ESPN had no usable surfer index. WSL data source is a v0.2 candidate.)
+// Local stat snapshot store (overwrite on each check)
+const SNAPSHOT_KEY = (id) => 'surf_stats_' + id;
+const saveStatSnapshot = (id, snap) => { if (!id || !snap) return; try { localStorage.setItem(SNAPSHOT_KEY(id), JSON.stringify(snap)); } catch(e) {} };
+const getStatSnapshot = (id) => { if (!id) return null; try { const raw = localStorage.getItem(SNAPSHOT_KEY(id)); return raw ? JSON.parse(raw) : null; } catch(e) { return null; } };
+const deleteStatSnapshot = (id) => { if (!id) return; try { localStorage.removeItem(SNAPSHOT_KEY(id)); } catch(e) {} };
+const buildSnapshot = (overview) => {
+  if (!overview) return null;
+  // Backend returns { athlete, overview, bio, stats, gamelog }
+  // ESPN's /athletes/{id} response wraps everything under another "athlete" key,
+  // so the actual fields live at overview.athlete.athlete.* and overview.athlete.team etc.
+  const athleteRoot = overview.athlete || {};
+  const ath = athleteRoot.athlete || athleteRoot;
+  const ov = overview.overview || {};
+  const st = overview.stats || {};
+  const flat = {
+    displayName: ath.displayName || ath.fullName || '',
+    team: athleteRoot.team || ath.team || (ov.athlete && ov.athlete.team) || null,
+    position: athleteRoot.position || ath.position || (ov.athlete && ov.athlete.position) || null,
+    status: athleteRoot.status || ath.status || (ov.athlete && ov.athlete.status) || null,
+    news: ov.news || athleteRoot.news || ath.news || [],
+    nextEvent: ov.nextEvent || athleteRoot.nextEvent || ath.nextEvent || [],
+    statistics: st || ov.statistics || athleteRoot.statistics || null,
+    injuries: athleteRoot.injuries || ath.injuries || (ov.athlete && ov.athlete.injuries) || [],
+  };
+  const status = flat.status || {};
+  const statusText = (status.type && (status.type.description || status.type.name)) || status.name || '';
+  const news0 = flat.news && flat.news.length > 0 ? flat.news[0] : null;
+  const next0 = flat.nextEvent && flat.nextEvent.length > 0 ? flat.nextEvent[0] : null;
+  const inj0 = flat.injuries && flat.injuries.length > 0 ? flat.injuries[0] : null;
+  return {
+    overview: flat,
+    statusText: statusText,
+    newsHeadline: news0 ? (news0.headline || news0.description || '') : '',
+    newsPublished: news0 ? (news0.published || '') : '',
+    nextEventDate: next0 ? (next0.date || '') : '',
+    injuryHeadline: inj0 ? (inj0.shortComment || inj0.longComment || inj0.description || '') : '',
+    injuryStatus: inj0 ? (inj0.status || (inj0.type && inj0.type.description) || '') : '',
+    capturedAt: Date.now()
+  };
+};
+const snapshotChanged = (oldSnap, newSnap) => {
+  if (!oldSnap || !newSnap) return true;
+  if (oldSnap.statusText !== newSnap.statusText) return true;
+  if (oldSnap.newsHeadline !== newSnap.newsHeadline) return true;
+  if (oldSnap.newsPublished !== newSnap.newsPublished) return true;
+  if (oldSnap.nextEventDate !== newSnap.nextEventDate) return true;
+  return false;
+};
+
+// ESPN (via Player Watch backend proxy — bypasses browser CORS)
+const LEAGUE_TO_SPORT = {
+  nfl: 'football', ncaaf: 'football',
+  nba: 'basketball', wnba: 'basketball', ncaab: 'basketball', ncaam: 'basketball', ncaaw: 'basketball',
+  mlb: 'baseball',
+  nhl: 'hockey',
+  mls: 'soccer', 'eng.1': 'soccer', 'esp.1': 'soccer', 'ita.1': 'soccer', 'ger.1': 'soccer', 'fra.1': 'soccer'
+};
+const fetchEspnPlayers = async (name) => {
+  try {
+    const url = API_BASE + '/espn/search?name=' + encodeURIComponent(name) + '&limit=10';
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const data = await r.json();
+    const groups = (data && data.results) || [];
+    var athletes = [];
+    for (var i = 0; i < groups.length; i++) {
+      var g = groups[i];
+      if (g.type === 'player' || g.type === 'athlete') athletes = athletes.concat(g.contents || []);
+    }
+    return athletes.map(function(a) {
+      // ESPN encodes league AND athlete ID in the link URL (e.g. /mlb/player/_/id/33192/...)
+      var href = (a.link && a.link.web && a.link.web.href) || (a.links && a.links[0] && a.links[0].href) || '';
+      var leagueMatch = href.match(/espn\.com\/([a-z0-9.]+)\/(?:player|athlete)/i);
+      var league = leagueMatch ? leagueMatch[1].toLowerCase() : (a.defaultLeagueSlug || a.league || '');
+      var sport = LEAGUE_TO_SPORT[league] || a.defaultSportSlug || a.sport || '';
+      // Extract integer athlete ID — ESPN's uid format is "s:20~l:28~a:3139477"
+      // a.id is a GUID and won't work for athlete endpoints
+      var athleteId = '';
+      if (a.uid) {
+        var uidMatch = a.uid.match(/~a:(\d+)/);
+        if (uidMatch) athleteId = uidMatch[1];
+      }
+      if (!athleteId) {
+        var idMatch = href.match(/\/id\/(\d+)/);
+        if (idMatch) athleteId = idMatch[1];
+      }
+      return {
+        id: athleteId,
+        displayName: a.displayName || (a.athlete && a.athlete.displayName) || a.name || '',
+        sport: sport,
+        league: league,
+        team: (a.team && a.team.displayName) || (a.subtitle) || '',
+        position: (a.position && a.position.displayName) || (a.athlete && a.athlete.position && a.athlete.position.displayName) || '',
+        headshot: (a.image && a.image.default) || (a.image && a.image.url) || (a.athlete && a.athlete.headshot && a.athlete.headshot.href) || '',
+        raw: a
+      };
+    });
+  } catch(e) { return []; }
+};
+const fetchEspnOverview = async (sport, league, id) => {
+  if (!sport || !league || !id) return null;
+  try {
+    const url = API_BASE + '/espn/overview?sport=' + encodeURIComponent(sport) + '&league=' + encodeURIComponent(league) + '&id=' + encodeURIComponent(id);
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch(e) { return null; }
+};
+
+// Wikipedia
 const fetchWikiBio = async (name) => {
   try {
     const sum = await (await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(name))).json();
     if (!sum || sum.type === 'no-extract' || !sum.title) return null;
-    return {
-      title: sum.title,
-      thumbnail: sum.thumbnail ? sum.thumbnail.source : null,
-      extract: sum.extract || '',
-      description: sum.description || ''
-    };
+    return { title: sum.title, thumbnail: sum.thumbnail ? sum.thumbnail.source : null, extract: sum.extract || '', description: sum.description || '' };
   } catch(e) { return null; }
 };
 
@@ -541,34 +772,108 @@ const fetchWikiBio = async (name) => {
 const SearchIcon = () => (<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>);
 const HeartIcon = () => (<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>);
 const InfoIcon = () => (<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>);
-const BellIcon = ({ red }) => (<svg className="w-7 h-7" fill="none" stroke={red ? 'var(--sf-accent-2)' : 'currentColor'} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>);
+const BellIcon = ({ red }) => (<svg className="w-7 h-7" fill="none" stroke={red ? 'var(--pw-accent-2)' : 'currentColor'} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>);
 const PlusIcon = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>);
 const TrashIcon = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>);
 const CheckIcon = () => (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>);
+const RefreshIcon = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>);
+const EyeIcon = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>);
+const EyeOffIcon = () => (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>);
 
 const ClearableInput = ({ value, onChange, onBlur, onKeyPress, placeholder, type='text', maxLength, inputClass }) => (
   <div className="relative">
-    <input type={type} name="surfer-search" inputMode="search" placeholder={placeholder} value={value} onChange={onChange} onBlur={onBlur} onKeyPress={onKeyPress} maxLength={maxLength} className={inputClass + ' pr-10'} autoCorrect="off" autoCapitalize="words" autoComplete="off" spellCheck="false" />
+    <input type={type} name="player-search" inputMode="search" placeholder={placeholder} value={value} onChange={onChange} onBlur={onBlur} onKeyPress={onKeyPress} maxLength={maxLength} className={inputClass + ' pr-10'} autoCorrect="off" autoCapitalize="words" autoComplete="off" spellCheck="false" />
     {value && value.length > 0 && (<button onClick={() => onChange({ target: { value: '' } })} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xl font-bold leading-none" type="button">X</button>)}
   </div>
 );
 
 const CardPageHeader = ({ title, subtitle }) => (
   <div className="mb-3 pb-2 border-b border-white/15 text-center">
-    <h2 className="text-4xl font-black text-white" style={{ fontFamily: 'var(--sf-display-font)', letterSpacing: '0.06em', textTransform: 'uppercase', WebkitTextStroke: '1px #fff' }}>{title}</h2>
+    <h2 className="text-4xl font-black text-white" style={{ fontFamily: 'var(--pw-display-font)', letterSpacing: '0.06em', textTransform: 'uppercase', WebkitTextStroke: '1px #fff' }}>{title}</h2>
     {subtitle && <p className="text-gray-200 text-xl mt-1">{subtitle}</p>}
   </div>
 );
 
 const PageWrapper = ({ children }) => (
-  <div style={{ minHeight: '100dvh', width: '100%', position: 'relative', paddingTop: 'env(safe-area-inset-top)', paddingBottom: '5rem', backgroundImage: 'var(--sf-bg-gradient)', backgroundSize: 'cover', backgroundAttachment: 'scroll' }}>
-    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--sf-bg-overlay)' }} />
+  <div style={{ minHeight: '100dvh', width: '100%', position: 'relative', paddingTop: 'env(safe-area-inset-top)', paddingBottom: '5rem', backgroundImage: 'var(--pw-bg-gradient)', backgroundSize: 'cover', backgroundAttachment: 'scroll' }}>
+    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--pw-bg-overlay)' }} />
     <div style={{ position: 'relative', zIndex: 10 }}>{children}</div>
   </div>
 );
 
+const StatPanel = ({ overview }) => {
+  if (!overview) return <p className="text-gray-300 text-xl text-center py-3">No stats available right now.</p>;
+  const status = overview.status || (overview.athlete && overview.athlete.status) || {};
+  const statusText = (status.type && (status.type.description || status.type.name)) || status.name || '';
+  const team = (overview.team && overview.team.displayName) || (overview.athlete && overview.athlete.team && overview.athlete.team.displayName) || '';
+  const position = (overview.position && overview.position.displayName) || (overview.athlete && overview.athlete.position && overview.athlete.position.displayName) || '';
+  const news = (overview.news && overview.news.length > 0 && overview.news[0]) || null;
+  const nextEvent = (overview.nextEvent && overview.nextEvent.length > 0 && overview.nextEvent[0]) || null;
+  const stats = (overview.statistics && (overview.statistics.categories || (overview.statistics.splits && overview.statistics.splits.categories))) || [];
+  const injury = (overview.injuries && overview.injuries.length > 0 && overview.injuries[0]) || null;
+  const statusLower = (statusText || '').toLowerCase();
+  var badgeColor = 'bg-green-700';
+  if (statusLower.indexOf('out') >= 0 || statusLower.indexOf('injured') >= 0 || statusLower.indexOf('ir') >= 0) badgeColor = 'bg-red-700';
+  else if (statusLower.indexOf('quest') >= 0 || statusLower.indexOf('doubt') >= 0) badgeColor = 'bg-yellow-600';
+  else if (statusLower.indexOf('retired') >= 0) badgeColor = 'bg-gray-700';
+  return (
+    <div className="space-y-3">
+      {statusText && (<div className={'px-4 py-2 rounded-xl text-center ' + badgeColor}><p className="text-white font-black text-2xl">{statusText.toUpperCase()}</p></div>)}
+      {injury && (injury.longComment || injury.shortComment || injury.description) && (
+        <div className="bg-red-950/40 border border-red-700/40 rounded-xl p-3">
+          <p className="text-red-300 text-sm font-bold mb-1">Injury Report{injury.status ? ' — ' + injury.status : ''}</p>
+          <p className="text-white text-base leading-snug">{injury.longComment || injury.shortComment || injury.description}</p>
+          {injury.date && <p className="text-gray-400 text-xs mt-1">{new Date(injury.date).toLocaleDateString()}</p>}
+        </div>
+      )}
+      {(team || position) && (<div className="flex justify-between text-white text-xl">{team && <span><span className="text-gray-400">Team:</span> <strong>{team}</strong></span>}{position && <span><span className="text-gray-400">Pos:</span> <strong>{position}</strong></span>}</div>)}
+      {nextEvent && (
+        <div className="bg-black/30 border border-white/10 rounded-xl p-3">
+          <p className="text-gray-400 text-sm mb-1">Next Matchup</p>
+          <p className="text-white text-xl font-bold">{nextEvent.name || (nextEvent.competitions && nextEvent.competitions[0] && nextEvent.competitions[0].competitors && nextEvent.competitions[0].competitors.map(c => c.team && c.team.displayName).filter(Boolean).join(' vs ')) || ''}</p>
+          {nextEvent.date && <p className="text-gray-300 text-base">{new Date(nextEvent.date).toLocaleString()}</p>}
+        </div>
+      )}
+      {stats.length > 0 && (
+        <div className="bg-black/30 border border-white/10 rounded-xl p-3">
+          <p className="text-gray-400 text-sm mb-2">Season Stats</p>
+          {stats.slice(0, 3).map((cat, i) => {
+            const labels = cat.labels || cat.names || [];
+            const seasonRows = cat.statistics || [];
+            const latestRow = seasonRows.length > 0 ? seasonRows[seasonRows.length - 1] : null;
+            const values = (latestRow && latestRow.stats) || [];
+            const seasonYear = latestRow && latestRow.season ? (latestRow.season.displayName || latestRow.season.year) : '';
+            const pairs = labels.map((lbl, idx) => ({ label: lbl, value: values[idx] })).filter(p => p.value !== undefined && p.value !== '' && p.value !== '0');
+            if (pairs.length === 0) return null;
+            return (
+              <div key={i} className="mb-2 last:mb-0">
+                {(cat.displayName || seasonYear) && <p className="text-white/70 text-base font-bold">{cat.displayName}{seasonYear ? ' — ' + seasonYear : ''}</p>}
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  {pairs.slice(0, 8).map((p, j) => (
+                    <div key={j} className="flex justify-between text-white text-base"><span className="text-gray-400">{p.label}</span><span className="font-bold">{p.value}</span></div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {news && (
+        <div className="bg-black/30 border border-white/10 rounded-xl p-3">
+          <p className="text-gray-400 text-sm mb-1">Latest News</p>
+          <p className="text-white text-xl font-bold leading-snug">{news.headline || news.description}</p>
+          {news.published && <p className="text-gray-400 text-sm mt-1">{new Date(news.published).toLocaleDateString()}</p>}
+        </div>
+      )}
+    </div>
+  );
+};
+
 function App() {
   const gate = useAuthGate(AUTH_GATE_CONFIG);
+  // Compatibility shims -- read-only access for the rest of App().
+  // Writes go through gate.add / gate.remove / gate.signOut / gate.openSignup.
+  const auth = gate.isAuthed;
   const user = gate.user;
   const watchlist = gate.list;
   const [page, setPage] = useState('search');
@@ -576,23 +881,49 @@ function App() {
   const [searchResults, setSearchResults] = useState(null);
   const [searched, setSearched] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [loadingSave, setLoadingSave] = useState(false);
+  const [checkingStats, setCheckingStats] = useState(false);
+  const [backendWaking, setBackendWaking] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [searchName, setSearchName] = useState('');
   const [showDangerZone, setShowDangerZone] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [drawerData, setDrawerData] = useState(null);
+  const [autoOpenId, setAutoOpenId] = useState(null);
   const [apiVersion, setApiVersion] = useState('...');
+  const [toast, setToast] = useState(null);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2400);
+  };
 
   useEffect(() => {
     fetch(API_BASE + '/health').then(r => r.json()).then(d => setApiVersion(d.version || '?')).catch(() => setApiVersion('?'));
+    // Auth hydration + watchlist load are owned by useAuthGate now.
   }, []);
 
+  // Reload notifications when sign-in flips. Anon users have no server alerts.
   useEffect(() => {
     if (gate.isAuthed) loadNotifications();
     else setNotifications([]);
     // eslint-disable-next-line
   }, [gate.isAuthed]);
 
+  useEffect(() => {
+    if (autoOpenId && page === 'myplayers' && watchlist.length > 0) {
+      const wItem = watchlist.find(w => w.id === autoOpenId);
+      if (wItem) { openMyPlayersDrawer(wItem); setAutoOpenId(null); }
+    }
+    // eslint-disable-next-line
+  }, [autoOpenId, page, watchlist]);
+
+  // Backwards-compat alias -- watchlist loading is owned by AuthGate.
+  const loadWatchlist = () => gate.refreshList();
   const loadNotifications = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -608,11 +939,12 @@ function App() {
   };
   const viewAlert = (n) => {
     const wItem = watchlist.find(w => w.id === n.watchlist_id);
-    if (wItem) { setPage('watchlist'); openDrawer(wItem); }
+    if (wItem) { setPage('myplayers'); setAutoOpenId(wItem.id); }
   };
+  // doAuth removed -- AuthGate owns register/login via gate.openSignup() and gate.openSignin().
   const doLogout = () => {
     gate.signOut();
-    setSearchResults(null); setSearched(false);
+    setSearchResults(null); setSearched(false); setSelectedPlayer(null);
     setPage('search');
   };
   const doDeleteAccount = async () => {
@@ -623,7 +955,7 @@ function App() {
       doLogout(); alert('Your account has been permanently deleted.');
     } catch (error) { alert('Error: ' + error.message); }
   };
-  const clearSearch = () => { setSearchResults(null); setSearched(false); setSearchName(''); };
+  const clearSearch = () => { setSearchResults(null); setSearched(false); setSelectedPlayer(null); setSearchName(''); };
   const isOnList = (name) => { if (!name) return false; const lower = name.trim().toLowerCase(); return !!watchlist.find(w => w && w.name && w.name.trim().toLowerCase() === lower); };
   const parseMeta = (locationField) => { if (!locationField) return null; try { return JSON.parse(locationField); } catch(e) { return null; } };
 
@@ -631,75 +963,123 @@ function App() {
     if (document.activeElement) document.activeElement.blur();
     const name = smartTitleCase((searchName || '').trim().replace(/\s+/g, ' '));
     if (!name || name.length < 2) { alert('Please enter a surfer name.'); return; }
-    setSearching(true); setSearchResults(null);
+    setSearching(true); setSearchResults(null); setSelectedPlayer(null);
     try {
       const wiki = await fetchWikiBio(name).catch(() => null);
-      setSearchResults({ wiki: wiki, queryName: name }); setSearched(true);
-    } catch(e) { setSearchResults({ wiki: null, queryName: name }); setSearched(true); }
+      const espnPlayers = [];
+      setSearchResults({ wiki, espnPlayers, queryName: name }); setSearched(true);
+      if (espnPlayers.length === 1) setSelectedPlayer(espnPlayers[0]);
+    } catch(e) { setSearchResults({ wiki: null, espnPlayers: [], queryName: name }); setSearched(true); }
     finally { setSearching(false); }
   };
 
-  // SAVE: route through AuthGate. Wikipedia-only meta for v0.1.
-  const saveSurfer = async () => {
-    if (!searchResults) return;
-    const wiki = searchResults.wiki;
-    const playerName = (wiki && wiki.title) || searchResults.queryName;
+  // SAVE: route through AuthGate (anon -> localStorage with 5-cap, authed -> server).
+  // Then snapshot to localStorage, navigate to My Players, auto-open the drawer.
+  const savePlayer = async () => {
+    if (!selectedPlayer && !(searchResults && searchResults.queryName)) return;
+    const playerName = selectedPlayer ? selectedPlayer.displayName : (searchResults && searchResults.queryName);
     if (!playerName) return;
     if (isOnList(playerName)) { alert(playerName + ' is already saved.'); return; }
     setLoadingSave(true);
     try {
-      const meta = wiki ? JSON.stringify({
-        wikiTitle: wiki.title,
-        thumbnail: wiki.thumbnail || '',
-        description: wiki.description || ''
+      const meta = selectedPlayer ? JSON.stringify({
+        espnId: selectedPlayer.id, sport: selectedPlayer.sport, league: selectedPlayer.league,
+        team: selectedPlayer.team, position: selectedPlayer.position, headshot: selectedPlayer.headshot
       }) : '';
       const created = await gate.add({ name: playerName, location: meta });
-      if (!created) return; // Hit anon cap; AuthGate opened modal.
-      clearSearch(); setPage('watchlist');
+      if (!created) {
+        // Hit the anon 5-cap -- AuthGate opened the signup modal.
+        return;
+      }
+      if (selectedPlayer && selectedPlayer.sport && selectedPlayer.league && selectedPlayer.id) {
+        const overview = await fetchEspnOverview(selectedPlayer.sport, selectedPlayer.league, selectedPlayer.id).catch(() => null);
+        const snap = buildSnapshot(overview);
+        if (snap && created.id) saveStatSnapshot(created.id, snap);
+      }
+      clearSearch(); setPage('myplayers');
+      if (created.id) setAutoOpenId(created.id);
     } catch(e) { alert('Error: ' + e.message); }
     finally { setLoadingSave(false); }
   };
 
-  const delSurfer = async (id) => {
-    try { await gate.remove(id); }
-    catch (error) { alert('Error: ' + error.message); }
+  const delPlayer = async (id) => {
+    try {
+      await gate.remove(id);
+      deleteStatSnapshot(id);
+    } catch (error) { alert('Error: ' + error.message); }
   };
 
-  // Drawer: Wiki bio re-fetched fresh on every tap. No stats source in v0.1.
-  const openDrawer = async (wItem) => {
+  // Watchlist drawer (light): hero + Wiki bio + Check button
+  const openWatchlistDrawer = async (wItem) => {
     const meta = parseMeta(wItem.location);
-    setDrawerData({ name: wItem.name, watchlistId: wItem.id, meta: meta, wiki: null, loading: true });
+    setDrawerData({ mode: 'watchlist', name: wItem.name, watchlistId: wItem.id, meta: meta, wiki: null, snapshot: null, loading: true });
     const wiki = await fetchWikiBio(wItem.name).catch(() => null);
     setDrawerData(prev => prev ? Object.assign({}, prev, { wiki: wiki, loading: false }) : null);
   };
 
+  // My Players drawer (full): hero + Wiki bio + StatPanel. Re-fetches fresh ESPN data on every tap.
+  const openMyPlayersDrawer = async (wItem) => {
+    const meta = parseMeta(wItem.location);
+    let snapshot = getStatSnapshot(wItem.id);
+    setDrawerData({ mode: 'myplayers', name: wItem.name, watchlistId: wItem.id, meta: meta, wiki: null, snapshot: snapshot, loading: true });
+    const wiki = await fetchWikiBio(wItem.name).catch(() => null);
+    if (meta && meta.sport && meta.league && meta.espnId) {
+      const overview = await fetchEspnOverview(meta.sport, meta.league, meta.espnId).catch(() => null);
+      const snap = buildSnapshot(overview);
+      if (snap) { saveStatSnapshot(wItem.id, snap); snapshot = snap; }
+    }
+    setDrawerData(prev => prev ? Object.assign({}, prev, { wiki: wiki, snapshot: snapshot, loading: false }) : null);
+  };
+
+  // Check for new stats: re-fetch, diff, transform drawer in place (no nav jump)
+  const checkForNewStats = async () => {
+    if (!drawerData || !drawerData.watchlistId) return;
+    const meta = drawerData.meta;
+    if (!meta || !meta.sport || !meta.league || !meta.espnId) { alert('No ESPN data linked to this player.'); return; }
+    setCheckingStats(true);
+    try {
+      const overview = await fetchEspnOverview(meta.sport, meta.league, meta.espnId);
+      const newSnap = buildSnapshot(overview);
+      if (!newSnap) { alert('Could not reach ESPN. Try again later.'); return; }
+      const oldSnap = getStatSnapshot(drawerData.watchlistId);
+      if (!snapshotChanged(oldSnap, newSnap)) { showToast('No Stats Yet, Try Later'); return; }
+      saveStatSnapshot(drawerData.watchlistId, newSnap);
+      // Transform the open drawer from watchlist-mode to myplayers-mode in place.
+      // User stays on whatever page they were on (Watchlist most often).
+      // Closing the drawer naturally returns them to that page.
+      setDrawerData(prev => prev ? Object.assign({}, prev, { mode: 'myplayers', snapshot: newSnap }) : null);
+    } catch(e) { alert('Error: ' + e.message); }
+    finally { setCheckingStats(false); }
+  };
+
   const unreadCount = notifications.length;
-  const iClass = "w-full px-4 py-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-teal-400 text-xl bg-black/40 text-white placeholder-gray-400";
+  const iClass = "w-full px-4 py-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-blue-400 text-xl bg-black/40 text-white placeholder-gray-400";
   const cardClass = "rounded-2xl p-4 shadow-lg backdrop-blur-sm";
-  const cardStyle = { backgroundColor: 'var(--sf-card-bg)', borderColor: 'var(--sf-card-border)', borderWidth: '1px' };
+  const cardStyle = { backgroundColor: 'var(--pw-card-bg)', borderColor: 'var(--pw-card-border)', borderWidth: '1px' };
   const containerClass = (page === 'about') ? 'w-full max-w-3xl mx-auto px-3' : 'w-full px-3';
 
-  const SurferCard = ({ wiki, queryName, showSaveButton }) => {
-    const display = (wiki && wiki.title) || queryName || '';
-    const photo = (wiki && wiki.thumbnail) || '';
+  const PlayerCard = ({ wiki, espnPlayer, showSaveButton }) => {
+    const display = espnPlayer ? espnPlayer.displayName : (wiki && wiki.title) || '';
+    const photo = (espnPlayer && espnPlayer.headshot) || (wiki && wiki.thumbnail) || '';
     const alreadySaved = isOnList(display);
     return (
       <div className="rounded-2xl overflow-hidden border border-white/15 shadow-lg" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
-        <div className="px-5 py-3 text-center" style={{ background: 'linear-gradient(90deg, var(--sf-accent-2), var(--sf-accent))' }}>
+        <div className="px-5 py-3 text-center" style={{ background: 'linear-gradient(90deg, var(--pw-accent-2), var(--pw-accent))' }}>
           <p className="text-white font-black text-3xl">{display}</p>
+          {espnPlayer && (espnPlayer.team || espnPlayer.position) && (<p className="text-white/90 text-xl">{[espnPlayer.team, espnPlayer.position].filter(Boolean).join(' • ')}</p>)}
         </div>
         <div className="p-4">
           <div className="flex gap-3 items-start mb-3">
             {photo ? <img src={photo} alt={display} className="w-20 h-20 rounded-full object-cover border-2 border-white/30 shrink-0" /> : <div className="w-20 h-20 rounded-full bg-black/40 flex items-center justify-center shrink-0 text-2xl text-white">?</div>}
             <div className="flex-1">
-              {wiki && wiki.description && <p className="text-teal-200 text-xl italic">{wiki.description}</p>}
+              {wiki && wiki.description && <p className="text-blue-200 text-xl italic">{wiki.description}</p>}
+              {espnPlayer && espnPlayer.league && <p className="text-white/70 text-base mt-1">{espnPlayer.league.toUpperCase()}</p>}
             </div>
           </div>
           {wiki && wiki.extract && <p className="text-gray-100 text-xl leading-relaxed mb-3">{wiki.extract}</p>}
           {showSaveButton && (
             <div className="space-y-2">
-              {alreadySaved ? <p className="text-green-300 text-xl text-center font-bold">Already saved</p> : <button onClick={saveSurfer} disabled={loadingSave || !wiki} className="w-full py-4 text-white rounded-xl font-bold text-2xl flex items-center justify-center gap-2 disabled:opacity-50" style={{ backgroundColor: 'var(--sf-accent)' }}><PlusIcon /> {loadingSave ? 'Saving...' : 'Save Surfer'}</button>}
-              {!wiki && <p className="text-yellow-300 text-base text-center">No Wikipedia match. Try a more specific spelling.</p>}
+              {alreadySaved ? <p className="text-green-300 text-xl text-center font-bold">Already saved</p> : <button onClick={savePlayer} disabled={loadingSave} className="w-full py-4 text-white rounded-xl font-bold text-2xl flex items-center justify-center gap-2 disabled:opacity-50" style={{ backgroundColor: 'var(--pw-accent)' }}><PlusIcon /> {loadingSave ? 'Saving...' : 'Save Surfer'}</button>}
               <button onClick={clearSearch} className="w-full py-3 bg-white/10 border border-white/20 text-white/80 rounded-xl text-xl text-center">Clear Search</button>
             </div>
           )}
@@ -711,9 +1091,9 @@ function App() {
 
   const Drawer = () => {
     if (!drawerData) return null;
-    const { name, meta, wiki, loading: drawerLoading } = drawerData;
-    const photo = (wiki && wiki.thumbnail) || (meta && meta.thumbnail) || '';
-    const desc = (wiki && wiki.description) || (meta && meta.description) || '';
+    const { mode, name, meta, wiki, snapshot, loading: drawerLoading } = drawerData;
+    const photo = (meta && meta.headshot) || (wiki && wiki.thumbnail) || '';
+    const overview = snapshot ? snapshot.overview : null;
     return (
       <>
         <div className="modal-overlay" onClick={() => setDrawerData(null)} />
@@ -726,18 +1106,26 @@ function App() {
             {drawerLoading && <div className="text-center py-8"><p className="text-white animate-pulse text-xl">Loading...</p></div>}
             {!drawerLoading && (
               <>
-                <div className="px-4 py-3 rounded-xl mb-3 text-center" style={{ background: 'linear-gradient(90deg, var(--sf-accent-2), var(--sf-accent))' }}>
+                <div className="px-4 py-3 rounded-xl mb-3 text-center" style={{ background: 'linear-gradient(90deg, var(--pw-accent-2), var(--pw-accent))' }}>
                   <p className="text-white font-black text-3xl">{name}</p>
+                  {meta && (meta.team || meta.position) && (<p className="text-white/90 text-xl">{[meta.team, meta.position].filter(Boolean).join(' • ')}</p>)}
                 </div>
                 <div className="flex gap-3 items-start mb-3">
                   {photo ? <img src={photo} alt={name} className="w-20 h-20 rounded-full object-cover border-2 border-white/30 shrink-0" /> : <div className="w-20 h-20 rounded-full bg-black/40 flex items-center justify-center shrink-0 text-2xl text-white">?</div>}
                   <div className="flex-1">
-                    {desc && <p className="text-teal-200 text-xl italic">{desc}</p>}
+                    {wiki && wiki.description && <p className="text-blue-200 text-xl italic">{wiki.description}</p>}
+                    {meta && meta.league && <p className="text-white/70 text-base mt-1">{meta.league.toUpperCase()}</p>}
                   </div>
                 </div>
                 {wiki && wiki.extract && <p className="text-gray-100 text-xl leading-relaxed mb-3">{wiki.extract}</p>}
-                {!wiki && !drawerLoading && <p className="text-yellow-300 text-base text-center">Couldn't reach Wikipedia just now.</p>}
-                <p className="text-gray-400 text-sm text-center mt-2">Bio: Wikipedia.</p>
+                {mode === 'watchlist' && (
+                  <button onClick={checkForNewStats} disabled={checkingStats} className="w-full py-4 text-white rounded-xl font-bold text-2xl flex items-center justify-center gap-2 disabled:opacity-50 mt-2" style={{ backgroundColor: 'var(--pw-accent)' }}>
+                    <RefreshIcon /> {checkingStats ? 'Checking...' : 'Check for new stats'}
+                  </button>
+                )}
+                {mode === 'myplayers' && <StatPanel overview={overview} />}
+                {mode === 'myplayers' && snapshot && snapshot.capturedAt && (<p className="text-white/40 text-sm text-center mt-3">Last updated {new Date(snapshot.capturedAt).toLocaleString()}</p>)}
+                {mode === 'myplayers' && (<p className="text-gray-400 text-sm text-center mt-2">Bio: Wikipedia.</p>)}
               </>
             )}
             <button onClick={() => setDrawerData(null)} className="w-full py-4 bg-white/10 border border-white/20 text-white rounded-xl text-xl mt-4">Close</button>
@@ -747,24 +1135,30 @@ function App() {
     );
   };
 
+  // [v1.0.26] Login splash removed. AuthGate handles sign-in/sign-up modally.
+  // Anonymous users land on Search; modal opens on Save-at-cap or via Info page.
+
   return (
     <PageWrapper>
       {gate.modal}
       <Drawer />
+      {toast && (
+        <div style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 'calc(6rem + env(safe-area-inset-bottom))', zIndex: 200, backgroundColor: 'var(--pw-accent)', color: '#fff', padding: '1.1rem 1.8rem', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.25)', fontSize: '1.5rem', fontWeight: 700, boxShadow: '0 6px 20px rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>{toast}</div>
+      )}
       <div className={containerClass}>
 
         {page === 'search' && (
           <div className="space-y-3" style={{ paddingTop: PT }}>
             <div className="flex flex-col items-center" style={{ height: PT, marginTop: '-' + PT, paddingTop: '4rem', paddingBottom: '1.5rem', pointerEvents: 'none' }}>
-              <h1 className="text-white font-black text-center" style={{ fontSize: isPhone ? '5.5rem' : '7.5rem', fontFamily: 'var(--sf-display-font)', letterSpacing: '0.04em', lineHeight: 0.9, textShadow: '0 4px 16px rgba(0,0,0,0.9)' }}>SURFER<br/>WATCH</h1>
-              <p className="text-white text-center" style={{ fontSize: isPhone ? '2rem' : '2.6rem', fontFamily: 'var(--sf-display-font)', letterSpacing: '0.04em', lineHeight: 1.05, textShadow: '0 2px 8px rgba(0,0,0,0.9)', marginTop: '1rem' }}>Who Are You<br/>Watching?</p>
+              <h1 className="text-white font-black text-center" style={{ fontSize: isPhone ? '5.5rem' : '7.5rem', fontFamily: 'var(--pw-display-font)', letterSpacing: '0.04em', lineHeight: 0.9, textShadow: '0 4px 16px rgba(0,0,0,0.9)' }}>SURFER<br/>WATCH</h1>
+              <p className="text-white text-center" style={{ fontSize: isPhone ? '2rem' : '2.6rem', fontFamily: 'var(--pw-display-font)', letterSpacing: '0.04em', lineHeight: 1.05, textShadow: '0 2px 8px rgba(0,0,0,0.9)', marginTop: '1rem' }}>Who Are You<br/>Watching?</p>
             </div>
             <div className={cardClass} style={Object.assign({}, cardStyle, { overflowY: 'auto', maxHeight: 'calc(100dvh - ' + PT + ' - 6rem)' })}>
               {searching && <p className="text-white text-center py-4 animate-pulse text-xl">Searching...</p>}
               {!searched ? (
                 <div className="space-y-2">
                   <ClearableInput value={searchName} onChange={(e) => setSearchName(e.target.value)} onBlur={(e) => setSearchName(smartTitleCase(e.target.value.trim()))} onKeyPress={(e) => e.key === 'Enter' && doSearch()} placeholder="Surfer name" inputClass={iClass} />
-                  <button onClick={doSearch} disabled={searching} className="w-full py-3 text-white rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 text-2xl font-bold" style={{ backgroundColor: 'var(--sf-accent)' }}>
+                  <button onClick={doSearch} disabled={searching} className="w-full py-3 text-white rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 text-2xl font-bold" style={{ backgroundColor: 'var(--pw-accent)' }}>
                     <SearchIcon /> {searching ? 'Searching...' : 'Find Surfer'}
                   </button>
                   <p className="text-gray-300 text-sm text-center">WSL pros, Triple Crown riders, big-wave chasers</p>
@@ -777,7 +1171,7 @@ function App() {
         {page === 'watchlist' && (
           <div className="space-y-3" style={{ paddingTop: '1rem' }}>
             <div className={cardClass} style={cardStyle}>
-              <CardPageHeader title="Watchlist" subtitle="Tap a name to see their bio" />
+              <CardPageHeader title="Watchlist" subtitle="Tap a name -- check for new stats" />
               <gate.CounterBanner />
               {watchlist.length === 0 && (<div className="py-6 text-center"><p className="text-gray-200 text-xl leading-relaxed mb-2">No surfers yet.</p><p className="text-white text-xl font-medium">Use Search to add surfers.</p></div>)}
               {watchlist.length > 0 && (
@@ -787,17 +1181,49 @@ function App() {
                     return (
                       <div key={w.id} className="p-4 rounded-lg border bg-black/40 border-white/15">
                         <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <button onClick={() => openWatchlistDrawer(w)} className="text-left w-full">
+                              <h3 className="font-semibold text-2xl text-white underline decoration-dotted truncate">{w.name}</h3>
+                            </button>
+                            {meta && (meta.team || meta.position) && <p className="text-xl text-gray-300">{[meta.team, meta.position].filter(Boolean).join(' • ')}</p>}
+                            {meta && meta.league && <p className="text-base text-white/60 uppercase">{meta.league}</p>}
+                            <div className="flex items-center gap-1 mt-1"><CheckIcon /><span className="text-xl text-green-300">Watching</span></div>
+                          </div>
+                          <button onClick={() => delPlayer(w.id)} className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg ml-2 shrink-0"><TrashIcon /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {page === 'myplayers' && (
+          <div className="space-y-3" style={{ paddingTop: '1rem' }}>
+            <div className={cardClass} style={cardStyle}>
+              <CardPageHeader title="My Surfers" subtitle="Your saved surfers" />
+              <gate.CounterBanner />
+              {watchlist.length === 0 ? (<div className="text-center py-6"><p className="text-gray-200 text-xl leading-relaxed">Search for a surfer and save them here.</p></div>) : (
+                <div className="space-y-3">
+                  <p className="text-gray-300 text-lg text-center mb-1">Tap a name to see latest info</p>
+                  {watchlist.map(w => {
+                    const meta = parseMeta(w.location);
+                    return (
+                      <div key={w.id} className="p-4 bg-black/50 rounded-lg border border-white/15">
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
-                            {meta && meta.thumbnail ? <img src={meta.thumbnail} alt={w.name} className="w-14 h-14 rounded-full object-cover border border-white/20 shrink-0" /> : <div className="w-14 h-14 rounded-full bg-black/40 flex items-center justify-center shrink-0 text-xl text-white">?</div>}
+                            {meta && meta.headshot ? <img src={meta.headshot} alt={w.name} className="w-14 h-14 rounded-full object-cover border border-white/20 shrink-0" /> : <div className="w-14 h-14 rounded-full bg-black/40 flex items-center justify-center shrink-0 text-xl text-white">?</div>}
                             <div className="flex-1 min-w-0">
-                              <button onClick={() => openDrawer(w)} className="text-left w-full">
+                              <button onClick={() => openMyPlayersDrawer(w)} className="text-left w-full">
                                 <h3 className="font-semibold text-2xl text-white underline decoration-dotted truncate">{w.name}</h3>
                               </button>
-                              {meta && meta.description && <p className="text-base text-gray-300 italic truncate">{meta.description}</p>}
-                              <div className="flex items-center gap-1 mt-1"><CheckIcon /><span className="text-xl text-green-300">Watching</span></div>
+                              {meta && meta.team && <p className="text-base text-gray-300">{meta.team}</p>}
+                              {meta && meta.position && <p className="text-base text-white/60">{meta.position}</p>}
                             </div>
                           </div>
-                          <button onClick={() => delSurfer(w.id)} className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg ml-2 shrink-0"><TrashIcon /></button>
+                          <button onClick={() => delPlayer(w.id)} className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg ml-2 shrink-0"><TrashIcon /></button>
                         </div>
                       </div>
                     );
@@ -813,13 +1239,8 @@ function App() {
             <div className={cardClass} style={cardStyle}>
               <CardPageHeader title="Alerts" subtitle="Contest results, injuries, retirements, milestones" />
               {!gate.isAuthed ? (
-                <gate.EmptyState message="Sign up to get alerts when the surfers you follow make news." ctaLabel="Sign up" />
-              ) : notifications.length === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-white font-bold text-2xl">No alerts yet</p>
-                  <p className="text-gray-200 text-xl mt-1">We're still wiring up the news feed -- alerts coming soon.</p>
-                </div>
-              ) : (
+                <gate.EmptyState message="Sign up to get 12-hour alerts when the surfers you follow make headlines." ctaLabel="Sign up" />
+              ) : notifications.length === 0 ? (<div className="text-center py-4"><p className="text-white font-bold text-2xl">No alerts yet</p><p className="text-gray-200 text-xl mt-1">We check your surfers every 12 hours.</p></div>) : (
                 <div className="space-y-3">
                   {notifications.map(n => (
                     <div key={n.id} className="p-3 bg-black/50 border border-white/15 rounded-xl">
@@ -827,7 +1248,7 @@ function App() {
                       <p className="text-gray-200 text-xl">{n.message}</p>
                       <p className="text-gray-400 text-base mt-1 mb-2">{new Date(n.created_at).toLocaleDateString()}</p>
                       <div className="flex gap-2">
-                        <button onClick={() => viewAlert(n)} className="flex-1 py-2 text-white rounded-lg text-xl font-bold" style={{ backgroundColor: 'var(--sf-accent)' }}>View</button>
+                        <button onClick={() => viewAlert(n)} className="flex-1 py-2 text-white rounded-lg text-xl font-bold" style={{ backgroundColor: 'var(--pw-accent)' }}>View</button>
                         <button onClick={() => dismissAlert(n.id)} className="flex-1 py-2 bg-transparent border border-white/30 text-white/80 rounded-lg text-xl">Dismiss</button>
                       </div>
                     </div>
@@ -842,8 +1263,8 @@ function App() {
           <div className="space-y-4 pb-8" style={{ paddingTop: '1rem' }}>
             <div className={cardClass} style={cardStyle}>
               <div className="mb-3 pb-2 border-b border-white/15 text-center">
-                <h2 className="text-4xl font-black text-white" style={{ fontFamily: 'var(--sf-display-font)', letterSpacing: '0.06em', textTransform: 'uppercase', WebkitTextStroke: '1px #fff' }}>About</h2>
-                <h2 className="text-4xl font-black text-white" style={{ fontFamily: 'var(--sf-display-font)', letterSpacing: '0.06em', textTransform: 'uppercase', WebkitTextStroke: '1px #fff' }}>{APP_NAME}</h2>
+                <h2 className="text-4xl font-black text-white" style={{ fontFamily: 'var(--pw-display-font)', letterSpacing: '0.06em', textTransform: 'uppercase', WebkitTextStroke: '1px #fff' }}>About</h2>
+                <h2 className="text-4xl font-black text-white" style={{ fontFamily: 'var(--pw-display-font)', letterSpacing: '0.06em', textTransform: 'uppercase', WebkitTextStroke: '1px #fff' }}>{APP_NAME}</h2>
               </div>
               <p className="text-white/80 italic text-xl text-center mb-3">v{APP_VERSION}</p>
               <div className="flex items-center gap-4 mb-4">
@@ -857,36 +1278,37 @@ function App() {
               <p className="text-white text-2xl font-bold italic mb-3">{TAGLINE}</p>
               <div className="space-y-3 text-gray-100 text-xl leading-relaxed">
                 <p>The surfers you care about, all in one place.</p>
-                <p>Add anyone -- WSL champions, Triple Crown riders, big-wave chasers, your favorite local -- and Surfer Watch keeps tabs on them. Bio, photo, and (soon) the contest results and milestones that matter.</p>
+                <p>Add anyone -- WSL champions, Triple Crown riders, big-wave chasers, your favorite local -- and Surfer Watch keeps tabs on the moves that matter -- contest results, injuries, retirements, and milestones -- and tells you when something changes.</p>
                 <p>No bloat. No noise. Just the surfers you picked.</p>
               </div>
             </div>
             <div className={cardClass} style={cardStyle}>
-              <h3 className="text-white text-2xl font-bold mb-4 text-center" style={{ fontFamily: 'var(--sf-display-font)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>How it works</h3>
+              <h3 className="text-white text-2xl font-bold mb-4 text-center" style={{ fontFamily: 'var(--pw-display-font)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>How it works</h3>
               <div className="space-y-4">
-                <div className="flex gap-3 items-start"><span className="text-white text-2xl font-black w-7 shrink-0">1.</span><p className="text-gray-100 text-xl">Search for a surfer. We pull their bio and photo from Wikipedia.</p></div>
+                <div className="flex gap-3 items-start"><span className="text-white text-2xl font-black w-7 shrink-0">1.</span><p className="text-gray-100 text-xl">Search for a surfer. We pull their bio from Wikipedia.</p></div>
                 <div className="flex gap-3 items-start"><span className="text-white text-2xl font-black w-7 shrink-0">2.</span><p className="text-gray-100 text-xl">Save them with one tap. They land on your Watchlist.</p></div>
-                <div className="flex gap-3 items-start"><span className="text-white text-2xl font-black w-7 shrink-0">3.</span><p className="text-gray-100 text-xl">Tap a name on Watchlist to see their full card and re-pull the latest bio.</p></div>
-                <div className="flex gap-3 items-start"><span className="text-white text-2xl font-black w-7 shrink-0">4.</span><p className="text-gray-100 text-xl">Sign up to unlock alerts and unlimited saves. Anonymous users get up to {AUTH_GATE_CONFIG.freeAnonLimit} saves to try it out.</p></div>
+                <div className="flex gap-3 items-start"><span className="text-white text-2xl font-black w-7 shrink-0">3.</span><p className="text-gray-100 text-xl">Tap a name on Watchlist to see their card.</p></div>
+                <div className="flex gap-3 items-start"><span className="text-white text-2xl font-black w-7 shrink-0">4.</span><p className="text-gray-100 text-xl">Tap a name on My Surfers to see their latest saved info.</p></div>
               </div>
             </div>
             <div className={cardClass} style={cardStyle}>
-              <h3 className="font-bold text-white mb-1 text-2xl" style={{ fontFamily: 'var(--sf-display-font)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Privacy</h3>
+              <h3 className="font-bold text-white mb-1 text-2xl" style={{ fontFamily: 'var(--pw-display-font)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Privacy</h3>
               <p className="text-white/60 text-xl mb-3">Last updated: May 2026</p>
               <div className="space-y-3 text-gray-100 text-xl leading-relaxed">
                 <p><strong className="text-white">We collect:</strong> your email, watchlist, and search activity.</p>
                 <p><strong className="text-white">We do not:</strong> sell your data, ever.</p>
-                <p><strong className="text-white">Sources:</strong> Bio and photo data from Wikipedia. Contest and ranking data coming in a future update.</p>
+                <p><strong className="text-white">Sources:</strong> Bio data from Wikipedia. Contest data coming in a future update.</p>
                 <p><strong className="text-white">Your rights:</strong> Delete your account and all data anytime.</p>
                 <a href="mailto:hello@surfer.watch" className="text-white/80 text-xl">hello@surfer.watch</a>
               </div>
             </div>
+            {/* Try our other Watchlist apps */}
             <div className={cardClass} style={cardStyle}>
               <h3 className="text-white text-2xl font-bold mb-3 text-center">Try our other Watchlist apps</h3>
               <div className="space-y-3">
                 <a href="https://3brains.app" target="_blank" rel="noopener noreferrer"
                   className="block w-full py-4 text-white text-center rounded-xl text-xl font-semibold"
-                  style={{ backgroundColor: 'var(--sf-accent)' }}>
+                  style={{ backgroundColor: 'var(--pw-accent)' }}>
                   Visit Our Site
                 </a>
               </div>
@@ -895,7 +1317,7 @@ function App() {
               {gate.isAuthed ? (
                 <>
                   <div className="p-3 bg-black/40 rounded-xl"><p className="font-medium text-white text-xl text-center">{user && user.email}</p></div>
-                  <button onClick={doLogout} className="w-full py-4 text-white rounded-xl text-2xl font-bold" style={{ backgroundColor: 'var(--sf-accent)' }}>Sign Out</button>
+                  <button onClick={doLogout} className="w-full py-4 text-white rounded-xl text-2xl font-bold" style={{ backgroundColor: 'var(--pw-accent)' }}>Sign Out</button>
                   <button onClick={() => setShowDangerZone(!showDangerZone)} className="w-full py-3 text-white/60 text-xl text-center">{showDangerZone ? 'Hide' : 'Account Removal'}</button>
                   {showDangerZone && (
                     <div className="space-y-3">
@@ -909,7 +1331,7 @@ function App() {
                     <p className="text-white text-xl mb-2">Trying it out? You can save up to {AUTH_GATE_CONFIG.freeAnonLimit} surfers without an account.</p>
                     <p className="text-white/70 text-lg">Sign up for unlimited saves and alerts.</p>
                   </div>
-                  <button onClick={() => gate.openSignup()} className="w-full py-4 text-white rounded-xl text-2xl font-bold" style={{ backgroundColor: 'var(--sf-accent)' }}>Sign Up</button>
+                  <button onClick={() => gate.openSignup()} className="w-full py-4 text-white rounded-xl text-2xl font-bold" style={{ backgroundColor: 'var(--pw-accent)' }}>Sign Up</button>
                   <button onClick={() => gate.openSignin()} className="w-full py-3 bg-white/10 border border-white/20 text-white rounded-xl text-xl">Already have an account? Sign In</button>
                 </>
               )}
@@ -924,10 +1346,14 @@ function App() {
         <div className="flex justify-around max-w-sm mx-auto">
           <button onClick={() => { clearSearch(); setPage('search'); }} className={'flex flex-col items-center gap-0.5 px-1 py-1 ' + (page === 'search' ? 'text-white' : 'text-gray-400')}><SearchIcon /><span className="text-xl font-medium">Search</span></button>
           <button onClick={() => setPage('watchlist')} className={'flex flex-col items-center gap-0.5 px-1 py-1 ' + (page === 'watchlist' ? 'text-white' : 'text-gray-400')}><HeartIcon /><span className="text-xl font-medium">Watchlist</span></button>
+          <button onClick={() => setPage('myplayers')} className={'flex flex-col items-center gap-0.5 px-1 py-1 ' + (page === 'myplayers' ? 'text-white' : 'text-gray-400')}>
+            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <span className="text-xl font-medium">My Surfers</span>
+          </button>
           <button onClick={() => setPage('about')} className={'flex flex-col items-center gap-0.5 px-1 py-1 ' + (page === 'about' ? 'text-white' : 'text-gray-400')}><InfoIcon /><span className="text-xl font-medium">Info</span></button>
           <button onClick={() => setPage('notifications')} className={'flex flex-col items-center gap-0.5 px-1 py-1 relative ' + (page === 'notifications' ? 'text-white' : 'text-gray-400')}>
             <BellIcon red={unreadCount > 0} />
-            {unreadCount > 0 && <span className="absolute top-0 right-1 text-white text-xl font-bold rounded-full w-4 h-4 flex items-center justify-center" style={{ backgroundColor: 'var(--sf-accent-2)' }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+            {unreadCount > 0 && <span className="absolute top-0 right-1 text-white text-xl font-bold rounded-full w-4 h-4 flex items-center justify-center" style={{ backgroundColor: 'var(--pw-accent-2)' }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
             <span className="text-xl font-medium">Alerts</span>
           </button>
         </div>
@@ -938,19 +1364,41 @@ function App() {
 
   function SearchResultView() {
     if (!searchResults) return null;
-    const { wiki, queryName } = searchResults;
-    if (!wiki) {
+    const { wiki, espnPlayers, queryName } = searchResults;
+    if (!selectedPlayer && espnPlayers.length > 1) {
       return (
         <div className="rounded-2xl overflow-hidden border border-white/15 shadow-lg" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
-          <div className="px-5 py-3 bg-cyan-800 text-center"><p className="text-white font-black text-3xl">{queryName}</p><p className="text-white/90 text-xl">No Wikipedia match found</p></div>
-          <div className="p-4">
-            <p className="text-gray-200 text-xl text-center py-4">Try a more specific spelling, or include the surfer's full name.</p>
+          <div className="px-5 py-3 bg-yellow-700 text-center"><p className="text-white font-black text-3xl">Multiple Surfers Found</p><p className="text-white/90 text-xl">Pick the right one</p></div>
+          <div className="p-4 space-y-2">
+            {espnPlayers.map((p, i) => (
+              <button key={i} onClick={() => setSelectedPlayer(p)} className="w-full p-3 bg-black/40 border border-white/15 rounded-xl text-left">
+                <div className="flex items-center gap-3">
+                  {p.headshot ? <img src={p.headshot} alt={p.displayName} className="w-12 h-12 rounded-full object-cover border border-white/20 shrink-0" /> : <div className="w-12 h-12 rounded-full bg-black/40 flex items-center justify-center shrink-0 text-lg text-white">?</div>}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-2xl font-bold truncate">{p.displayName}</p>
+                    <p className="text-white/70 text-xl truncate">{[p.team, p.position].filter(Boolean).join(' • ')}</p>
+                    {p.league && <p className="text-white/50 text-base uppercase">{p.league}</p>}
+                  </div>
+                </div>
+              </button>
+            ))}
             <button onClick={clearSearch} className="w-full py-3 bg-white/10 border border-white/20 text-white/80 rounded-xl text-xl text-center mt-2">Clear Search</button>
           </div>
         </div>
       );
     }
-    return <SurferCard wiki={wiki} queryName={queryName} showSaveButton={true} />;
+    if (espnPlayers.length === 0) {
+      return (
+        <div className="rounded-2xl overflow-hidden border border-white/15 shadow-lg" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+          <div className="px-5 py-3 bg-cyan-800 text-center"><p className="text-white font-black text-3xl">{queryName}</p><p className="text-white/90 text-xl">Wikipedia result</p></div>
+          <div className="p-4">
+            {wiki ? (<><PlayerCard wiki={wiki} espnPlayer={null} showSaveButton={true} /></>) : (<p className="text-gray-200 text-xl text-center py-4">No results from Wikipedia. Try a more specific spelling, or include the surfer's full name.</p>)}
+            <button onClick={clearSearch} className="w-full py-3 bg-white/10 border border-white/20 text-white/80 rounded-xl text-xl text-center mt-2">Clear Search</button>
+          </div>
+        </div>
+      );
+    }
+    return <PlayerCard wiki={wiki} espnPlayer={selectedPlayer || espnPlayers[0]} showSaveButton={true} />;
   }
 }
 
