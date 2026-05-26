@@ -65,7 +65,7 @@ const { useState, useEffect } = React;
 
 /* SKIN BLOCK -- mirrors what reskinner v0.3 will produce. */
 const APP_NAME = 'Surfer Watch';
-const APP_VERSION = '0.2.2';
+const APP_VERSION = '0.2.3';
 const API_BASE = 'https://surfer-watch-backend.onrender.com';
 const PW_REPO = 'https://raw.githubusercontent.com/bspencer413/surfer-watch/main';
 const SIGNIN_BG = PW_REPO + '/signin-background.png';
@@ -1116,7 +1116,7 @@ function App() {
         </div>
         <div className="p-4">
           <div className="flex gap-3 items-start mb-3">
-            {photo ? <img src={photo} alt={display} className="w-20 h-20 rounded-full object-cover border-2 border-white/30 shrink-0" /> : <div className="w-20 h-20 rounded-full border-2 border-white/30 shrink-0" style={{ backgroundImage: "url('https://3brains.app/og/surfer-watch.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}></div>}
+            {photo ? <img src={photo} alt={display} className="w-20 h-20 rounded-full object-cover border-2 border-white/30 shrink-0" /> : <div className="w-20 h-20 rounded-full border-2 border-white/30 shrink-0" style={{ backgroundImage: "url('https://3brains.app/og/surf-barrel.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}></div>}
             <div className="flex-1">
               {wiki && wiki.description && <p className="text-blue-200 text-xl italic">{wiki.description}</p>}
               {espnPlayer && espnPlayer.league && <p className="text-white/70 text-base mt-1">{espnPlayer.league.toUpperCase()}</p>}
@@ -1157,7 +1157,7 @@ function App() {
                   {meta && (meta.team || meta.position) && (<p className="text-white/90 text-xl">{[meta.team, meta.position].filter(Boolean).join(' • ')}</p>)}
                 </div>
                 <div className="flex gap-3 items-start mb-3">
-                  {photo ? <img src={photo} alt={name} className="w-20 h-20 rounded-full object-cover border-2 border-white/30 shrink-0" /> : <div className="w-20 h-20 rounded-full border-2 border-white/30 shrink-0" style={{ backgroundImage: "url('https://3brains.app/og/surfer-watch.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}></div>}
+                  {photo ? <img src={photo} alt={name} className="w-20 h-20 rounded-full object-cover border-2 border-white/30 shrink-0" /> : <div className="w-20 h-20 rounded-full border-2 border-white/30 shrink-0" style={{ backgroundImage: "url('https://3brains.app/og/surf-barrel.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}></div>}
                   <div className="flex-1">
                     {wiki && wiki.description && <p className="text-blue-200 text-xl italic">{wiki.description}</p>}
                     {meta && meta.league && <p className="text-white/70 text-base mt-1">{meta.league.toUpperCase()}</p>}
@@ -1261,7 +1261,7 @@ function App() {
                       <div key={w.id} className="p-4 bg-black/50 rounded-lg border border-white/15">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
-                            {meta && meta.headshot ? <img src={meta.headshot} alt={w.name} className="w-14 h-14 rounded-full object-cover border border-white/20 shrink-0" /> : <div className="w-14 h-14 rounded-full border border-white/20 shrink-0" style={{ backgroundImage: "url('https://3brains.app/og/surfer-watch.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}></div>}
+                            {meta && meta.headshot ? <img src={meta.headshot} alt={w.name} className="w-14 h-14 rounded-full object-cover border border-white/20 shrink-0" /> : <div className="w-14 h-14 rounded-full border border-white/20 shrink-0" style={{ backgroundImage: "url('https://3brains.app/og/surf-barrel.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}></div>}
                             <div className="flex-1 min-w-0">
                               <button onClick={() => openMyPlayersDrawer(w)} className="text-left w-full">
                                 <h3 className="font-semibold text-2xl text-white underline decoration-dotted truncate">{w.name}</h3>
@@ -1420,7 +1420,7 @@ function App() {
             {espnPlayers.map((p, i) => (
               <button key={i} onClick={() => setSelectedPlayer(p)} className="w-full p-3 bg-black/40 border border-white/15 rounded-xl text-left">
                 <div className="flex items-center gap-3">
-                  {p.headshot ? <img src={p.headshot} alt={p.displayName} className="w-12 h-12 rounded-full object-cover border border-white/20 shrink-0" /> : <div className="w-12 h-12 rounded-full border border-white/20 shrink-0" style={{ backgroundImage: "url('https://3brains.app/og/surfer-watch.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}></div>}
+                  {p.headshot ? <img src={p.headshot} alt={p.displayName} className="w-12 h-12 rounded-full object-cover border border-white/20 shrink-0" /> : <div className="w-12 h-12 rounded-full border border-white/20 shrink-0" style={{ backgroundImage: "url('https://3brains.app/og/surf-barrel.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}></div>}
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-2xl font-bold truncate">{p.displayName}</p>
                     <p className="text-white/70 text-xl truncate">{[p.team, p.position].filter(Boolean).join(' • ')}</p>
