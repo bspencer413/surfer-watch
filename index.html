@@ -65,7 +65,7 @@ const { useState, useEffect } = React;
 
 /* SKIN BLOCK -- mirrors what reskinner v0.3 will produce. */
 const APP_NAME = 'Surfer Watch';
-const APP_VERSION = '0.1.3';
+const APP_VERSION = '0.1.4';
 const API_BASE = 'https://surfer-watch-backend.onrender.com';
 const PW_REPO = 'https://raw.githubusercontent.com/bspencer413/surfer-watch/main';
 const SIGNIN_BG = PW_REPO + '/signin-background.png';
@@ -806,7 +806,7 @@ const PageWrapper = ({ children }) => (
 );
 
 const StatPanel = ({ overview }) => {
-  if (!overview) return <p className="text-gray-300 text-xl text-center py-3">No stats available right now.</p>;
+  if (!overview) return <p className="text-gray-300 text-xl text-center py-3">No news yet.</p>;
   const status = overview.status || (overview.athlete && overview.athlete.status) || {};
   const statusText = (status.type && (status.type.description || status.type.name)) || status.name || '';
   const team = (overview.team && overview.team.displayName) || (overview.athlete && overview.athlete.team && overview.athlete.team.displayName) || '';
@@ -1046,7 +1046,7 @@ function App() {
       const newSnap = buildSnapshot(overview);
       if (!newSnap) { alert('Could not reach ESPN. Try again later.'); return; }
       const oldSnap = getStatSnapshot(drawerData.watchlistId);
-      if (!snapshotChanged(oldSnap, newSnap)) { showToast('No Stats Yet, Try Later'); return; }
+      if (!snapshotChanged(oldSnap, newSnap)) { showToast('No News Yet, Try Later'); return; }
       saveStatSnapshot(drawerData.watchlistId, newSnap);
       // Transform the open drawer from watchlist-mode to myplayers-mode in place.
       // User stays on whatever page they were on (Watchlist most often).
@@ -1124,7 +1124,7 @@ function App() {
                 {wiki && wiki.extract && <p className="text-gray-100 text-xl leading-relaxed mb-3">{wiki.extract}</p>}
                 {mode === 'watchlist' && meta && meta.espnId && (
                   <button onClick={checkForNewStats} disabled={checkingStats} className="w-full py-4 text-white rounded-xl font-bold text-2xl flex items-center justify-center gap-2 disabled:opacity-50 mt-2" style={{ backgroundColor: 'var(--pw-accent)' }}>
-                    <RefreshIcon /> {checkingStats ? 'Checking...' : 'Check for new stats'}
+                    <RefreshIcon /> {checkingStats ? 'Checking...' : 'Check for news'}
                   </button>
                 )}
                 {mode === 'myplayers' && <StatPanel overview={overview} />}
