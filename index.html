@@ -65,7 +65,7 @@ const { useState, useEffect } = React;
 
 /* SKIN BLOCK -- mirrors what reskinner v0.3 will produce. */
 const APP_NAME = 'Surfer Watch';
-const APP_VERSION = '0.1.4';
+const APP_VERSION = '0.2.0';
 const API_BASE = 'https://surfer-watch-backend.onrender.com';
 const PW_REPO = 'https://raw.githubusercontent.com/bspencer413/surfer-watch/main';
 const SIGNIN_BG = PW_REPO + '/signin-background.png';
@@ -772,6 +772,17 @@ const fetchWikiBio = async (name) => {
   } catch(e) { return null; }
 };
 
+// Fetch news articles for a saved surfer from the backend cache.
+// Returns array of article objects (or [] if cache empty / fetch fails).
+const fetchNewsForSurfer = async (name) => {
+  try {
+    const r = await fetch(API_BASE + '/news/' + encodeURIComponent(name));
+    if (!r.ok) return [];
+    const data = await r.json();
+    return (data && data.articles) || [];
+  } catch(e) { return []; }
+};
+
 // Icons
 const SearchIcon = () => (<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>);
 const HeartIcon = () => (<svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>);
@@ -804,6 +815,31 @@ const PageWrapper = ({ children }) => (
     <div style={{ position: 'relative', zIndex: 10 }}>{children}</div>
   </div>
 );
+
+const NewsPanel = ({ news }) => {
+  if (news === null || news === undefined) return null;
+  if (news.length === 0) return <p className="text-gray-300 text-base text-center py-3">No news yet.</p>;
+  return (
+    <div className="mt-4">
+      <p className="text-gray-400 text-sm mb-2">Latest News</p>
+      <div className="space-y-2">
+        {news.slice(0, 10).map((article, i) => (
+          <a key={i} href={article.url} target="_blank" rel="noopener noreferrer" className="block bg-white/5 border border-white/10 rounded-xl p-3 hover:bg-white/10 no-underline">
+            <p className="text-white text-base font-semibold leading-tight">{article.title}</p>
+            <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
+              <span>{article.source || ''}</span>
+              <span>{article.published_at ? new Date(article.published_at).toLocaleDateString() : ''}</span>
+            </div>
+            {article.is_meet_recap && (
+              <span className="inline-block mt-2 px-2 py-0.5 text-xs rounded-full" style={{ backgroundColor: 'var(--pw-accent)', color: 'white' }}>Meet recap</span>
+            )}
+          </a>
+        ))}
+      </div>
+      <p className="text-gray-400 text-sm text-center mt-3">News: Google News.</p>
+    </div>
+  );
+};
 
 const StatPanel = ({ overview }) => {
   if (!overview) return <p className="text-gray-300 text-xl text-center py-3">No news yet.</p>;
@@ -1016,23 +1052,29 @@ function App() {
   // Watchlist drawer (light): hero + Wiki bio + Check button
   const openWatchlistDrawer = async (wItem) => {
     const meta = parseMeta(wItem.location);
-    setDrawerData({ mode: 'watchlist', name: wItem.name, watchlistId: wItem.id, meta: meta, wiki: null, snapshot: null, loading: true });
-    const wiki = await fetchWikiBio(wItem.name).catch(() => null);
-    setDrawerData(prev => prev ? Object.assign({}, prev, { wiki: wiki, loading: false }) : null);
+    setDrawerData({ mode: 'watchlist', name: wItem.name, watchlistId: wItem.id, meta: meta, wiki: null, news: null, snapshot: null, loading: true });
+    const [wiki, news] = await Promise.all([
+      fetchWikiBio(wItem.name).catch(() => null),
+      fetchNewsForSurfer(wItem.name).catch(() => [])
+    ]);
+    setDrawerData(prev => prev ? Object.assign({}, prev, { wiki: wiki, news: news, loading: false }) : null);
   };
 
   // My Players drawer (full): hero + Wiki bio + StatPanel. Re-fetches fresh ESPN data on every tap.
   const openMyPlayersDrawer = async (wItem) => {
     const meta = parseMeta(wItem.location);
     let snapshot = getStatSnapshot(wItem.id);
-    setDrawerData({ mode: 'myplayers', name: wItem.name, watchlistId: wItem.id, meta: meta, wiki: null, snapshot: snapshot, loading: true });
-    const wiki = await fetchWikiBio(wItem.name).catch(() => null);
+    setDrawerData({ mode: 'myplayers', name: wItem.name, watchlistId: wItem.id, meta: meta, wiki: null, news: null, snapshot: snapshot, loading: true });
+    const [wiki, news] = await Promise.all([
+      fetchWikiBio(wItem.name).catch(() => null),
+      fetchNewsForSurfer(wItem.name).catch(() => [])
+    ]);
     if (meta && meta.sport && meta.league && meta.espnId) {
       const overview = await fetchEspnOverview(meta.sport, meta.league, meta.espnId).catch(() => null);
       const snap = buildSnapshot(overview);
       if (snap) { saveStatSnapshot(wItem.id, snap); snapshot = snap; }
     }
-    setDrawerData(prev => prev ? Object.assign({}, prev, { wiki: wiki, snapshot: snapshot, loading: false }) : null);
+    setDrawerData(prev => prev ? Object.assign({}, prev, { wiki: wiki, news: news, snapshot: snapshot, loading: false }) : null);
   };
 
   // Check for new stats: re-fetch, diff, transform drawer in place (no nav jump)
@@ -1095,7 +1137,7 @@ function App() {
 
   const Drawer = () => {
     if (!drawerData) return null;
-    const { mode, name, meta, wiki, snapshot, loading: drawerLoading } = drawerData;
+    const { mode, name, meta, wiki, news, snapshot, loading: drawerLoading } = drawerData;
     const photo = (meta && meta.headshot) || (wiki && wiki.thumbnail) || '';
     const overview = snapshot ? snapshot.overview : null;
     return (
@@ -1122,14 +1164,14 @@ function App() {
                   </div>
                 </div>
                 {wiki && wiki.extract && <p className="text-gray-100 text-xl leading-relaxed mb-3">{wiki.extract}</p>}
+                <NewsPanel news={news} />
                 {mode === 'watchlist' && meta && meta.espnId && (
                   <button onClick={checkForNewStats} disabled={checkingStats} className="w-full py-4 text-white rounded-xl font-bold text-2xl flex items-center justify-center gap-2 disabled:opacity-50 mt-2" style={{ backgroundColor: 'var(--pw-accent)' }}>
                     <RefreshIcon /> {checkingStats ? 'Checking...' : 'Check for news'}
                   </button>
                 )}
-                {mode === 'myplayers' && <StatPanel overview={overview} />}
+                {mode === 'myplayers' && overview && <StatPanel overview={overview} />}
                 {mode === 'myplayers' && snapshot && snapshot.capturedAt && (<p className="text-white/40 text-sm text-center mt-3">Last updated {new Date(snapshot.capturedAt).toLocaleString()}</p>)}
-                {mode === 'myplayers' && (<p className="text-gray-400 text-sm text-center mt-2">Bio: Wikipedia.</p>)}
               </>
             )}
             <button onClick={() => setDrawerData(null)} className="w-full py-4 bg-white/10 border border-white/20 text-white rounded-xl text-xl mt-4">Close</button>
