@@ -65,7 +65,7 @@ const { useState, useEffect } = React;
 
 /* SKIN BLOCK -- mirrors what reskinner v0.3 will produce. */
 const APP_NAME = 'Surfer Watch';
-const APP_VERSION = '0.2.3';
+const APP_VERSION = '0.2.4';
 const API_BASE = 'https://surfer-watch-backend.onrender.com';
 const PW_REPO = 'https://raw.githubusercontent.com/bspencer413/surfer-watch/main';
 const SIGNIN_BG = PW_REPO + '/signin-background.png';
@@ -78,7 +78,7 @@ const isTablet = window.innerWidth >= 500 && window.innerWidth < 1024;
 const PT = isPhone ? '42vh' : isTablet ? '46vh' : '44vh';
 
 // ============================================================================
-// AuthGate v0.3.1 — 3Brains portable account + anonymous-storage component
+// AuthGate v0.3.3 — 3Brains portable account + anonymous-storage component
 // ============================================================================
 //
 // PURPOSE
@@ -291,7 +291,11 @@ function useAuthGate(config) {
     for (let i = 0; i < anonItems.length; i++) {
       const anonItem = anonItems[i];
       try {
-        const created = await serverAdd({ name: anonItem.name, location: anonItem.location });
+        // v0.3.2: shape-agnostic migration. POST the full anon item minus the
+        // client-only id (backend assigns its own). No field cherry-picking.
+        const payload = Object.assign({}, anonItem);
+        delete payload.id;
+        const created = await serverAdd(payload);
         // Remap snapshot key if it exists under the temp anon ID
         try {
           const oldKey = config.anonSnapshotPrefix + anonItem.id;
@@ -363,15 +367,14 @@ function useAuthGate(config) {
       return null;
     }
     const id = genAnonId();
-    const newItem = {
+    // v0.3.2: shape-agnostic. Safe defaults first, host item on top (host
+    // fields win), then stamp client id + created_at. Preserves whatever
+    // shape the host passes to gate.add. No spread (iOS Safari).
+    const defaults = { status: 'active', is_resolved: false, resolution_outcome: null };
+    const newItem = Object.assign({}, defaults, item, {
       id: id,
-      name: item.name,
-      location: item.location,
-      status: 'active',
-      is_resolved: false,
-      resolution_outcome: null,
       created_at: new Date().toISOString()
-    };
+    });
     const updated = current.concat([newItem]);
     writeAnonList(updated);
     setList(updated);
@@ -439,6 +442,15 @@ function useAuthGate(config) {
       // Replay pending action after isAuthed has propagated. We re-do the
       // add through serverAdd directly (not gate.add) because the closure
       // captured the old isAuthed=false.
+      // v0.3.3: after the replay, tell the host so it can move the user off the
+      // stale search view onto their saved list. Without this, the item that
+      // hit the cap is left on screen and re-tapping Save says "already saved".
+      const notifyHost = () => {
+        if (typeof config.onAuthSuccess === 'function') {
+          try { config.onAuthSuccess({ hadPendingAdd: !!(pa && pa.type === 'add') }); }
+          catch (e) {}
+        }
+      };
       if (pa) {
         setTimeout(async () => {
           try {
@@ -449,7 +461,10 @@ function useAuthGate(config) {
               await refreshList();
             }
           } catch (e) { console.error('AuthGate: replay pending action failed', e); }
+          notifyHost();
         }, 100);
+      } else {
+        notifyHost();
       }
     } catch (e) {
       clearTimeout(wakeTimer); setBackendWaking(false);
@@ -637,6 +652,7 @@ function useAuthGate(config) {
     add: add,
     remove: remove,
     refreshList: refreshList,
+    getToken: readToken,               // v0.3.2: host token reads route here (dual-storage safe)
     requireAuth: requireAuth,
     openSignup: openSignup,
     openSignin: openSignin,
@@ -647,7 +663,7 @@ function useAuthGate(config) {
   };
 }
 
-// === END AuthGate v0.3.1 ======================================================
+// === END AuthGate v0.3.3 ======================================================
 
 
 // Helpers
@@ -910,7 +926,12 @@ const StatPanel = ({ overview }) => {
 };
 
 function App() {
-  const gate = useAuthGate(AUTH_GATE_CONFIG);
+  const gate = useAuthGate(Object.assign({}, AUTH_GATE_CONFIG, {
+    // v0.3.3: after a capped-save signup, land the user on their saved list.
+    onAuthSuccess: function (ctx) {
+      if (ctx && ctx.hadPendingAdd) { clearSearch(); setPage('myplayers'); }
+    }
+  }));
   // Compatibility shims -- read-only access for the rest of App().
   // Writes go through gate.add / gate.remove / gate.signOut / gate.openSignup.
   const auth = gate.isAuthed;
@@ -966,14 +987,14 @@ function App() {
   const loadWatchlist = () => gate.refreshList();
   const loadNotifications = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = gate.getToken();
       const r = await fetch(API_BASE + '/notifications', { headers: { 'Authorization': 'Bearer ' + token } });
       if (!r.ok) throw new Error('Failed');
       setNotifications(await r.json());
     } catch (e) { console.error(e); }
   };
   const dismissAlert = async (notifId) => {
-    const token = localStorage.getItem('token');
+    const token = gate.getToken();
     setNotifications(prev => prev.filter(n => n.id !== notifId));
     try { await fetch(API_BASE + '/notifications/' + notifId, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } }); } catch(e) {}
   };
@@ -989,7 +1010,7 @@ function App() {
   };
   const doDeleteAccount = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = gate.getToken();
       const r = await fetch(API_BASE + '/account', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
       if (!r.ok) throw new Error('Failed');
       doLogout(); alert('Your account has been permanently deleted.');
@@ -1031,13 +1052,15 @@ function App() {
         // Hit the anon 5-cap -- AuthGate opened the signup modal.
         return;
       }
+      // v0.2.4: navigate off the search view FIRST, before the stat fetch
+      // below, so the just-saved surfer's card can't flash "Already saved".
+      clearSearch(); setPage('myplayers');
+      if (created.id) setAutoOpenId(created.id);
       if (selectedPlayer && selectedPlayer.sport && selectedPlayer.league && selectedPlayer.id) {
         const overview = await fetchEspnOverview(selectedPlayer.sport, selectedPlayer.league, selectedPlayer.id).catch(() => null);
         const snap = buildSnapshot(overview);
         if (snap && created.id) saveStatSnapshot(created.id, snap);
       }
-      clearSearch(); setPage('myplayers');
-      if (created.id) setAutoOpenId(created.id);
     } catch(e) { alert('Error: ' + e.message); }
     finally { setLoadingSave(false); }
   };
