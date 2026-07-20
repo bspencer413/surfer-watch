@@ -65,7 +65,7 @@ const { useState, useEffect } = React;
 
 /* SKIN BLOCK -- mirrors what reskinner v0.3 will produce. */
 const APP_NAME = 'Surfer Watch';
-const APP_VERSION = '0.2.4';
+const APP_VERSION = '0.2.5';
 const API_BASE = 'https://surfer-watch-backend.onrender.com';
 const PW_REPO = 'https://raw.githubusercontent.com/bspencer413/surfer-watch/main';
 const SIGNIN_BG = PW_REPO + '/signin-background.png';
@@ -78,7 +78,7 @@ const isTablet = window.innerWidth >= 500 && window.innerWidth < 1024;
 const PT = isPhone ? '42vh' : isTablet ? '46vh' : '44vh';
 
 // ============================================================================
-// AuthGate v0.3.3 — 3Brains portable account + anonymous-storage component
+// AuthGate v0.3.4 — 3Brains portable account + anonymous-storage component
 // ============================================================================
 //
 // PURPOSE
@@ -143,6 +143,14 @@ const AUTH_GATE_CONFIG = {
   loginEndpoint: '/auth/login',
   registerEndpoint: '/auth/register',
   freeAnonLimit: 5,
+  promoteField: 'in_my_surfers',
+  serverPromote: function(id, saved, token) {
+    return fetch(API_BASE + '/watchlist/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ in_my_surfers: saved })
+    });
+  },
   appName: 'Surfer Watch',
   saveActionLabel: 'save this surfer',
   itemNoun: 'surfers',
@@ -296,6 +304,12 @@ function useAuthGate(config) {
         const payload = Object.assign({}, anonItem);
         delete payload.id;
         const created = await serverAdd(payload);
+        try {
+          if (config.promoteField && anonItem[config.promoteField]
+              && typeof config.serverPromote === 'function') {
+            await config.serverPromote(created.id, true, readToken());
+          }
+        } catch (e) {}
         // Remap snapshot key if it exists under the temp anon ID
         try {
           const oldKey = config.anonSnapshotPrefix + anonItem.id;
@@ -402,6 +416,27 @@ function useAuthGate(config) {
     setPendingAction({ type: 'callback', fn: callback });
     openSignup('Sign up to ' + config.saveActionLabel + '.');
     return false;
+  };
+
+  const promote = async (id, saved) => {
+    const val = (saved === undefined) ? true : saved;
+    if (isAuthed) {
+      if (typeof config.serverPromote === 'function') {
+        const r = await config.serverPromote(id, val, readToken());
+        if (r && r.ok) await refreshList();
+      }
+      return;
+    }
+    if (!config.promoteField) return;
+    const current = readAnonList();
+    const updated = current.map(function(it) {
+      if (it.id !== id) return it;
+      const c = Object.assign({}, it);
+      c[config.promoteField] = val;
+      return c;
+    });
+    writeAnonList(updated);
+    setList(updated);
   };
 
   // -- Modal submit (calls login or register against backend)
@@ -653,6 +688,7 @@ function useAuthGate(config) {
     remove: remove,
     refreshList: refreshList,
     getToken: readToken,               // v0.3.2: host token reads route here (dual-storage safe)
+    promote: promote,
     requireAuth: requireAuth,
     openSignup: openSignup,
     openSignin: openSignin,
@@ -663,7 +699,7 @@ function useAuthGate(config) {
   };
 }
 
-// === END AuthGate v0.3.3 ======================================================
+// === END AuthGate v0.3.4 ======================================================
 
 
 // Helpers
@@ -1197,6 +1233,14 @@ function App() {
                 {mode === 'myplayers' && snapshot && snapshot.capturedAt && (<p className="text-white/40 text-sm text-center mt-3">Last updated {new Date(snapshot.capturedAt).toLocaleString()}</p>)}
               </>
             )}
+            {drawerData.watchlistId && (() => {
+              const promoted = (watchlist.find(function(w){return w.id === drawerData.watchlistId;}) || {}).in_my_surfers;
+              return (
+                <button onClick={async () => { await gate.promote(drawerData.watchlistId, !promoted); }} className={'w-full py-4 rounded-xl font-bold text-2xl flex items-center justify-center gap-2 mt-3 ' + (promoted ? 'bg-white/10 border border-white/20 text-white' : 'text-white')} style={promoted ? {} : { backgroundColor: 'var(--pw-accent)' }}>
+                  {promoted ? 'Remove from My Surfers' : 'Save to My Surfers'}
+                </button>
+              );
+            })()}
             <button onClick={() => setDrawerData(null)} className="w-full py-4 bg-white/10 border border-white/20 text-white rounded-xl text-xl mt-4">Close</button>
           </div>
         </div>
@@ -1275,10 +1319,10 @@ function App() {
             <div className={cardClass} style={cardStyle}>
               <CardPageHeader title="My Surfers" subtitle="Your saved surfers" />
               <gate.CounterBanner />
-              {watchlist.length === 0 ? (<div className="text-center py-6"><p className="text-gray-200 text-xl leading-relaxed">Search for a surfer and save them here.</p></div>) : (
+              {watchlist.filter(function(w){return w.in_my_surfers;}).length === 0 ? (<div className="text-center py-6"><p className="text-gray-200 text-xl leading-relaxed">Save surfers from your Watchlist here to build your My Surfers list.</p></div>) : (
                 <div className="space-y-3">
                   <p className="text-gray-300 text-lg text-center mb-1">Tap a name to see latest info</p>
-                  {watchlist.map(w => {
+                  {watchlist.filter(function(w){return w.in_my_surfers;}).map(w => {
                     const meta = parseMeta(w.location);
                     return (
                       <div key={w.id} className="p-4 bg-black/50 rounded-lg border border-white/15">
